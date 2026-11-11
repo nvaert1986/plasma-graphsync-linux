@@ -22,6 +22,13 @@ precedence = "aggregate"
 SPDX-FileCopyrightText = "2026 plasma-graphsync-linux contributors"
 SPDX-License-Identifier = "GPL-3.0-or-later"
 
+# Dolphin emblems built on the rounded square of the Breeze emblem icons: Breeze's licence
+[[annotations]]
+path = ["icons/io.github.nvaert1986.graphsync-emblem-cloud.svg", "icons/io.github.nvaert1986.graphsync-emblem-syncing.svg"]
+precedence = "override"
+SPDX-FileCopyrightText = ["2014 Uri Herrera and other Breeze icon authors (KDE)", "2026 plasma-graphsync-linux contributors"]
+SPDX-License-Identifier = "LGPL-3.0-or-later"
+
 # Gentoo convention: ebuilds are GPL-2 and copyright "Gentoo Authors"
 [[annotations]]
 path = "packaging/gentoo/**/*.ebuild"

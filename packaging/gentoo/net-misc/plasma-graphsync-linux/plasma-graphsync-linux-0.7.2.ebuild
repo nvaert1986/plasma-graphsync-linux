@@ -12,7 +12,7 @@ DESCRIPTION="Sync OneDrive for Business and SharePoint libraries on KDE Plasma"
 HOMEPAGE="https://github.com/nvaert1986/plasma-graphsync-linux"
 SRC_URI="https://github.com/nvaert1986/${PN}/archive/refs/tags/v${PV}.tar.gz -> ${P}.tar.gz"
 
-LICENSE="GPL-3+ CC0-1.0"
+LICENSE="GPL-3+ LGPL-3+ CC0-1.0"
 SLOT="0"
 KEYWORDS="~amd64"
 

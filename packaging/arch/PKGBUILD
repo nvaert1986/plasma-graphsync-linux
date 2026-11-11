@@ -8,7 +8,7 @@ pkgrel=1
 pkgdesc='Sync OneDrive for Business and SharePoint libraries on KDE Plasma'
 arch=(x86_64)
 url='https://github.com/nvaert1986/plasma-graphsync-linux'
-license=(GPL-3.0-or-later)
+license=(GPL-3.0-or-later LGPL-3.0-or-later)
 # xdg-utils: xdg-open is started at run time, so namcap does not see it
 depends=(glibc libstdc++ hicolor-icon-theme
          qt6-base qt6-declarative qt6-networkauth qt6-websockets qtkeychain-qt6
@@ -21,7 +21,7 @@ options=(!debug)
 conflicts=(plasma-onedrive-linux)
 replaces=(plasma-onedrive-linux)
 source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz")
-sha256sums=('SKIP')  # set from the tag tarball at release
+sha256sums=('489dee6bdbb11cd38ca470eba738742305687c43aaf771fb44e701694d0c42a0')
 
 # Optional: ship an organisation's app registration in /etc/xdg/graphsyncrc
 : "${GRAPHSYNC_CLIENT_ID:=}" "${GRAPHSYNC_TENANT_ID:=}"

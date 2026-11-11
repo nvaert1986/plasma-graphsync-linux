@@ -3,6 +3,13 @@
 All notable changes to Graph Sync (plasma-graphsync-linux). Versions follow the last finished
 development phase; the third number counts fixes.
 
+## Unreleased
+
+**Documentation**
+- Credits for KDE and Qt, and a statement that the project is not affiliated with KDE.
+- The two Dolphin emblems built on the Breeze emblem icons now carry Breeze's copyright and
+  licence (LGPL-3.0-or-later) in REUSE.toml and in the package metadata.
+
 ## 0.7.2 (2026-11-11)
 
 Security and reliability fixes from a code and security review.

@@ -9,7 +9,7 @@ Name:           plasma-graphsync-linux
 Version:        0.7.2
 Release:        1%{?dist}
 Summary:        Sync OneDrive for Business and SharePoint libraries on KDE Plasma
-License:        GPL-3.0-or-later
+License:        GPL-3.0-or-later AND LGPL-3.0-or-later
 URL:            https://github.com/nvaert1986/plasma-graphsync-linux
 Source0:        %{url}/archive/refs/tags/v%{version}/%{name}-%{version}.tar.gz
 
@@ -76,8 +76,8 @@ the Sync button in SharePoint. Not affiliated with Microsoft.
 %find_lang %{name} --all-name
 
 %files -f %{name}.lang
-%license LICENSES/GPL-3.0-or-later.txt
-%doc README.md INSTALL.md
+%license LICENSES/GPL-3.0-or-later.txt LICENSES/LGPL-3.0-or-later.txt
+%doc README.md INSTALL.md CHANGELOG.md
 %{_bindir}/plasma-graphsync-linux
 %{_bindir}/graphsyncctl
 %{_bindir}/graphsyncd

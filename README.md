@@ -97,8 +97,19 @@ cmake --install build          # as root
 
 Then run `plasma-graphsync-linux` once per user. The setup wizard asks for the Client ID of the
 app registration and the work e-mail address (the tenant is looked up), unless an administrator
-put them in `/etc/xdg/graphsyncrc`. Packages for Debian 13, Fedora and Arch (tested in clean
-containers) and an ebuild for Gentoo are in [packaging/](packaging/).
+put them in `/etc/xdg/graphsyncrc`.
+
+Ready-made packages are attached to each
+[release](https://github.com/nvaert1986/plasma-graphsync-linux/releases):
+
+| Distribution | Install (as root) |
+|---|---|
+| Debian 13 (trixie) | `apt install ./plasma-graphsync-linux_<version>-1_amd64.deb` |
+| Fedora (newest release) | `dnf install ./plasma-graphsync-linux-<version>-1.fc<release>.x86_64.rpm` |
+| Arch Linux | `pacman -U plasma-graphsync-linux-<version>-1-x86_64.pkg.tar.zst` |
+
+They are built and install-tested in clean containers. The packaging files, and an ebuild for
+Gentoo, are in [packaging/](packaging/).
 
 ## Documentation
 
@@ -113,6 +124,28 @@ containers) and an ebuild for Gentoo are in [packaging/](packaging/).
 - **Claude (Anthropic)**, AI model (Claude Opus 5.5): co-author. Wrote the code, tests and
   documentation. Its commits carry a `Co-Authored-By: Claude` trailer.
 
+## Credits
+
+Graph Sync is built on the work of the KDE community and the Qt Project. Thank you to everyone
+who works on them.
+
+- **KDE Frameworks, Kirigami and KDE Plasma**: the app, the System Settings page, the tray widget
+  and the Dolphin integration are made with them, and they are what makes the client feel at home
+  on the Plasma desktop.
+- **Breeze icons** (KDE Visual Design Group): the app shows the icons of your icon theme, Breeze
+  by default. The two Dolphin emblems in `icons/` (`*-emblem-cloud.svg` and
+  `*-emblem-syncing.svg`) are built on the Breeze emblem icons and keep Breeze's licence,
+  LGPL-3.0-or-later.
+- **Qt** (The Qt Company and the Qt Project) and **QtKeychain**, which keeps the sign-in in
+  KWallet.
+
+## KDE
+
+This project is not affiliated with, endorsed, sponsored or supported by KDE e.V. or the KDE
+community. It is an independent project that uses their free software. KDE® and the K Desktop
+Environment® logo are registered trademarks of KDE e.V.; "Plasma" in the name only says which
+desktop the client is made for. Qt is a registered trademark of The Qt Company Ltd.
+
 ## Microsoft
 
 This project is not affiliated with, endorsed, sponsored or supported by Microsoft. Microsoft,
@@ -124,6 +157,9 @@ talks to the public Microsoft Graph API with your organisation's own app registr
 
 ## Licence
 
-GPL-3.0-or-later, see [LICENSES/GPL-3.0-or-later.txt](LICENSES/GPL-3.0-or-later.txt). The
-program is distributed in the hope that it will be useful, but **without any warranty**,
-without even the implied warranty of merchantability or fitness for a particular purpose.
+GPL-3.0-or-later, see [LICENSES/GPL-3.0-or-later.txt](LICENSES/GPL-3.0-or-later.txt). The two
+emblem icons based on Breeze are LGPL-3.0-or-later, see
+[LICENSES/LGPL-3.0-or-later.txt](LICENSES/LGPL-3.0-or-later.txt); [REUSE.toml](REUSE.toml) lists
+the licence of every file. The program is distributed in the hope that it will be useful, but
+**without any warranty**, without even the implied warranty of merchantability or fitness for a
+particular purpose.
