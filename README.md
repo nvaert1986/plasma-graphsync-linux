@@ -64,7 +64,8 @@ and the tray still show the earlier name plasma-graphsync-linux. Names in them a
 - Notifications for conflicts, problems, many deleted files and expired sign-ins
 - English and Dutch
 
-Planned: distribution packages (phase 7), multiple accounts and tenants (phase 8). Not planned for now: co-authoring of Office documents.
+Planned: multiple accounts and tenants (phase 8). Not planned for now: co-authoring of Office
+documents.
 
 ## Permissions
 
