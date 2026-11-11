@@ -1,0 +1,9 @@
+{
+    "KPlugin": {
+        "Description": "Sync client for Microsoft OneDrive and SharePoint on KDE Plasma",
+        "Icon": "io.github.nvaert1986.graphsync",
+        "Name": "Graph Sync"
+    },
+    "X-KDE-Keywords": "OneDrive,SharePoint,sync,cloud,Microsoft 365,libraries",
+    "X-KDE-System-Settings-Parent-Category": "network"
+}

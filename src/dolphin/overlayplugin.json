@@ -1,0 +1,6 @@
+{
+    "KPlugin": {
+        "Description": "Sync state emblems for OneDrive and SharePoint folders",
+        "Name": "Graph Sync"
+    }
+}

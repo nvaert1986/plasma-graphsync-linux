@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- SPDX-FileCopyrightText: 2026 plasma-graphsync-linux contributors -->
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<!-- Files On-Demand placeholders: report.docx.cloud stands for an online-only report.docx -->
+<mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">
+  <mime-type type="application/x-plasma-graphsync-linux-placeholder">
+    <comment>Online-only file</comment>
+    <comment xml:lang="nl">Bestand dat alleen online staat</comment>
+    <generic-icon name="cloud-download"/>
+    <magic priority="80">
+      <match type="string" offset="0" value="[plasma-graphsync-linux placeholder]"/>
+    </magic>
+    <glob pattern="*.cloud"/>
+  </mime-type>
+</mime-info>

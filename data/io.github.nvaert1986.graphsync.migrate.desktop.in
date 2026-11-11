@@ -1,0 +1,10 @@
+# SPDX-FileCopyrightText: 2026 plasma-graphsync-linux contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Takes over an install of plasma-onedrive-linux (this client before 0.7.0) once per user at
+# login; graphsyncctl then hides this entry for that user. Does nothing on fresh installs.
+[Desktop Entry]
+Type=Application
+Name=plasma-graphsync-linux: take over plasma-onedrive-linux
+Exec=@KDE_INSTALL_FULL_BINDIR@/graphsyncctl migrate
+NoDisplay=true
+X-KDE-autostart-phase=2

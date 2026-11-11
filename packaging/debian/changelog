@@ -1,0 +1,148 @@
+plasma-graphsync-linux (0.7.2-1) unstable; urgency=medium
+
+  * Temporary, lock and desktop files and names ending in .cloud are never
+    synced; before, such a file from online could be deleted online.
+  * SharePoint Sync button links are checked, and a sync location can no
+    longer be the home folder, / or overlap another one.
+  * Sync state readable by the owner only; the sign-in token only goes over
+    https to Microsoft Graph. More fixes in CHANGELOG.md.
+
+ -- nvaert1986 <25772781+nvaert1986@users.noreply.github.com>  Wed, 11 Nov 2026 12:00:00 +0100
+
+plasma-graphsync-linux (0.7.1-1) unstable; urgency=medium
+
+  * Safer takeover of plasma-onedrive-linux installs: also from System
+    Settings, never while the old service still runs, old service masked.
+  * Display name Graph Sync; fixes from a code review.
+
+ -- nvaert1986 <25772781+nvaert1986@users.noreply.github.com>  Wed, 11 Nov 2026 10:10:00 +0100
+
+plasma-graphsync-linux (0.7.0-1) unstable; urgency=medium
+
+  * New name: plasma-graphsync-linux (was plasma-onedrive-linux). An existing
+    install is taken over once at login: settings, sync state, sign-in and the
+    default handlers move over, the old sync service is stopped.
+
+ -- nvaert1986 <25772781+nvaert1986@users.noreply.github.com>  Wed, 11 Nov 2026 09:00:00 +0100
+
+plasma-graphsync-linux (0.6.5-1) unstable; urgency=medium
+
+  * The setup wizard asks for the app registration (client ID and work e-mail
+    address; the tenant is looked up) when no administrator configured it;
+    it can be changed in Settings > Advanced.
+  * No error on first start before signing in.
+  * First packages for Debian 13, Fedora and Arch.
+
+ -- nvaert1986 <25772781+nvaert1986@users.noreply.github.com>  Tue, 10 Nov 2026 23:45:00 +0100
+
+plasma-graphsync-linux (0.6.4-1) unstable; urgency=medium
+
+  * Fixes from a review of the whole project: Files On-Demand choices follow
+    online renames of online-only files and survive the first upload of a new
+    folder; small uploads show a lost connection as offline; an upload whose
+    answer got lost no longer becomes a conflict copy of itself.
+  * A folder deleted online keeps symlinks and files saved during the check,
+    and large deletes need less work.
+  * The tray no longer shows Set Up when everything is set up; the Sign In
+    button stays visible while waiting for the browser.
+
+ -- nvaert1986 <25772781+nvaert1986@users.noreply.github.com>  Tue, 10 Nov 2026 23:30:00 +0100
+
+plasma-graphsync-linux (0.6.3-1) unstable; urgency=medium
+
+  * A folder deleted online goes to the Trash as one entry when nothing in it
+    changed here.
+  * Files On-Demand choices follow renamed and moved files and folders; choices
+    for paths that no longer exist are removed.
+  * Builds on Qt 6.8 and KDE Frameworks 6.13 (Debian 13); there sign-in uses a
+    code, since the browser sign-in needs Qt 6.9.
+
+ -- nvaert1986 <25772781+nvaert1986@users.noreply.github.com>  Tue, 10 Nov 2026 23:00:00 +0100
+
+plasma-graphsync-linux (0.6.2-1) unstable; urgency=medium
+
+  * Interrupted uploads resume where they stopped, instead of starting over
+    and turning the file into a conflict copy of itself.
+  * Syncing resumes within 30 seconds after an outage, or at once when the
+    network comes back; a connection lost during uploads shows as offline.
+  * Throttling by Microsoft 365 pauses all requests as asked, so transfers no
+    longer fail during large syncs; push notifications back off properly.
+  * Errors are logged once.
+
+ -- nvaert1986 <25772781+nvaert1986@users.noreply.github.com>  Tue, 10 Nov 2026 22:00:00 +0100
+
+plasma-graphsync-linux (0.6.1-1) unstable; urgency=medium
+
+  * Offline is a state of its own: no false "Sign in again", no error
+    notifications; an expired sign-in still asks to sign in again.
+  * Dropped connections are noticed in about three minutes; broken downloads
+    are retried on a fresh connection and never taken as complete.
+  * Readable messages when opening an online-only file fails.
+
+ -- nvaert1986 <25772781+nvaert1986@users.noreply.github.com>  Tue, 10 Nov 2026 21:00:00 +0100
+
+plasma-graphsync-linux (0.6.0-1) unstable; urgency=medium
+
+  * Files On-Demand per location: online-only files as .cloud placeholders,
+    downloaded when opened; Always Keep on This Device, Free Up Space and
+    Download Now in Dolphin and under Open With.
+
+ -- nvaert1986 <25772781+nvaert1986@users.noreply.github.com>  Tue, 10 Nov 2026 20:00:00 +0100
+
+plasma-graphsync-linux (0.5.1-1) unstable; urgency=medium
+
+  * Settings > Advanced: bandwidth limits, files not to sync (patterns, hidden
+    files, .nosync folders), free space to keep, Check All Files Again.
+  * Low disk space protection, a regular full check, transfer progress and
+    "Updated by" in the tray, sign-in with a code.
+
+ -- nvaert1986 <25772781+nvaert1986@users.noreply.github.com>  Tue, 10 Nov 2026 19:00:00 +0100
+
+plasma-graphsync-linux (0.5.0-1) unstable; urgency=medium
+
+  * "Add shortcut to My files" folders are synced as locations of their own
+    inside the OneDrive folder; renames and removals are mirrored both ways.
+  * .url files (shortcuts to single files) open in the browser.
+
+ -- nvaert1986 <25772781+nvaert1986@users.noreply.github.com>  Tue, 10 Nov 2026 18:00:00 +0100
+
+plasma-graphsync-linux (0.4.2-1) unstable; urgency=medium
+
+  * View Online opens the item's own web address (Office files in the browser
+    editor, other files as a preview).
+  * The System Settings page and the app's Settings window share one view.
+  * Settings window: the last card is no longer cut off; larger default size.
+
+ -- nvaert1986 <25772781+nvaert1986@users.noreply.github.com>  Tue, 10 Nov 2026 17:00:00 +0100
+
+plasma-graphsync-linux (0.4.1-1) unstable; urgency=medium
+
+  * Share: Add and Send buttons, optional name suggestions (People.Read,
+    User.ReadBasic.All) with an e-mail fallback.
+  * Manage Permissions in Browser opens SharePoint's permissions page.
+
+ -- nvaert1986 <25772781+nvaert1986@users.noreply.github.com>  Tue, 10 Nov 2026 15:00:00 +0100
+
+plasma-graphsync-linux (0.4.0-1) unstable; urgency=medium
+
+  * Copy link, Share and Version history, from Dolphin and the tray.
+  * SharePoint libraries now live in "SharePoint - <Organisation>".
+  * Tray icons show the sync state with a coloured badge.
+
+ -- nvaert1986 <25772781+nvaert1986@users.noreply.github.com>  Tue, 10 Nov 2026 12:00:00 +0100
+
+plasma-graphsync-linux (0.2.0-1) unstable; urgency=medium
+
+  * Dolphin integration: sync status emblems, context menu (View Online,
+    Sync Now, Choose Folders, Settings) and Places entries.
+  * Settings window in the style of the Windows client, tray right-click menu,
+    single instance, folder icons.
+  * Complete Dutch translation.
+
+ -- nvaert1986 <25772781+nvaert1986@users.noreply.github.com>  Tue, 10 Nov 2026 09:00:00 +0100
+
+plasma-graphsync-linux (0.1.0-1) unstable; urgency=medium
+
+  * Initial release.
+
+ -- nvaert1986 <25772781+nvaert1986@users.noreply.github.com>  Mon, 09 Nov 2026 12:00:00 +0100

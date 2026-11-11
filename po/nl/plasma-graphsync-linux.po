@@ -1,0 +1,1149 @@
+# Dutch translation of plasma-graphsync-linux
+# SPDX-FileCopyrightText: 2026 plasma-graphsync-linux contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+msgid ""
+msgstr ""
+"Project-Id-Version: plasma-graphsync-linux\n"
+"PO-Revision-Date: 2026-11-11 10:35+0100\n"
+"Last-Translator: plasma-graphsync-linux contributors\n"
+"Language-Team: Dutch\n"
+"Language: nl\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=n != 1;\n"
+
+msgid "Could not reach Microsoft 365. Check the network connection."
+msgstr "Kan Microsoft 365 niet bereiken. Controleer de netwerkverbinding."
+
+msgid "This item is not online yet. Wait until it has synced and try again."
+msgstr "Dit item staat nog niet online. Wacht tot het is gesynchroniseerd en probeer het opnieuw."
+
+msgid "Your organisation does not allow this here. (%1)"
+msgstr "Je organisatie staat dit hier niet toe. (%1)"
+
+msgid "%1 is not in a synced folder."
+msgstr "%1 staat niet in een gesynchroniseerde map."
+
+msgid "Cannot write %1: %2"
+msgstr "Kan %1 niet schrijven: %2"
+
+msgid "%1 is only online (%2). Open this file to download it, or right-click it in Dolphin and choose \"Always Keep on This Device\"."
+msgstr "%1 staat alleen online (%2). Open dit bestand om het te downloaden, of klik er in Dolphin met rechts op en kies \"Altijd op dit apparaat houden\"."
+
+msgid "Do not edit or rename this file; it is replaced by the real file when that is downloaded."
+msgstr "Bewerk dit bestand niet en geef het geen andere naam; het wordt vervangen door het echte bestand zodra dat gedownload is."
+
+msgid "Checking all files again"
+msgstr "Alle bestanden worden opnieuw gecontroleerd"
+
+msgid "Upload of %1 failed (HTTP %2)"
+msgstr "Uploaden van %1 mislukt (HTTP %2)"
+
+msgid "No connection to Microsoft 365; syncing continues when the network is back."
+msgstr "Geen verbinding met Microsoft 365; het synchroniseren gaat verder zodra het netwerk terug is."
+
+msgid "%1 exists but is not a folder"
+msgstr "%1 bestaat, maar is geen map"
+
+msgid "Local folder %1 is missing; not syncing (re-create it or remove the sync root)"
+msgstr "Lokale map %1 ontbreekt; er wordt niet gesynchroniseerd (maak de map opnieuw aan of verwijder de synchronisatie)"
+
+msgid "Cannot create %1"
+msgstr "Kan %1 niet aanmaken"
+
+msgid "Cannot write the placeholder for %1: %2"
+msgstr "Kan de plaatsvervanger voor %1 niet schrijven: %2"
+
+msgid "Cannot free up the space of %1"
+msgstr "Kan de ruimte van %1 niet vrijmaken"
+
+msgid "Freed up the space of 1 file"
+msgid_plural "Freed up the space of %1 files"
+msgstr[0] "De ruimte van 1 bestand vrijgemaakt"
+msgstr[1] "De ruimte van %1 bestanden vrijgemaakt"
+
+msgid "%1 is not known to the sync engine"
+msgstr "%1 is niet bekend bij de synchronisatie"
+
+msgid "It was deleted or moved online; the next sync updates this folder."
+msgstr "Het is online verwijderd of verplaatst; de volgende synchronisatie werkt deze map bij."
+
+msgid "No connection to Microsoft 365. Check the network connection."
+msgstr "Geen verbinding met Microsoft 365. Controleer de netwerkverbinding."
+
+msgid "The download failed"
+msgstr "Het downloaden is mislukt"
+
+msgid "it was moved out of this folder"
+msgstr "ze is uit deze map verplaatst"
+
+msgid "its folder is no longer synced"
+msgstr "haar map wordt niet meer gesynchroniseerd"
+
+msgid "Shortcut %1 found; it is synced with the library it points to"
+msgstr "Snelkoppeling %1 gevonden; ze wordt gesynchroniseerd met de bibliotheek waarnaar ze verwijst"
+
+msgid "Shortcut %1 is no longer synced: %2"
+msgstr "Snelkoppeling %1 wordt niet meer gesynchroniseerd: %2"
+
+msgid "Cannot move shortcut %1 to %2: the folder is not synced"
+msgstr "Kan snelkoppeling %1 niet naar %2 verplaatsen: die map wordt niet gesynchroniseerd"
+
+msgid "Moving shortcut %1 to %2 online failed: %3"
+msgstr "Snelkoppeling %1 online naar %2 verplaatsen is mislukt: %3"
+
+msgid "Moved shortcut %1 to %2 online"
+msgstr "Snelkoppeling %1 online naar %2 verplaatst"
+
+msgid "Removing shortcut %1 online failed: %2"
+msgstr "Snelkoppeling %1 online verwijderen is mislukt: %2"
+
+msgid "Removed shortcut %1 online: its folder was deleted here"
+msgstr "Snelkoppeling %1 online verwijderd: haar map is hier verwijderd"
+
+msgid "Cannot rename %1 to keep a conflict copy"
+msgstr "Kan %1 niet hernoemen om een conflictkopie te bewaren"
+
+msgid "Conflict: kept your version of %1 as %2"
+msgstr "Conflict: jouw versie van %1 is bewaard als %2"
+
+msgid "Cannot move %1 to %2"
+msgstr "Kan %1 niet verplaatsen naar %2"
+
+msgid "Moved %1 to %2"
+msgstr "%1 verplaatst naar %2"
+
+msgid "Checking all files (regular full check)"
+msgstr "Alle bestanden worden gecontroleerd (regelmatige volledige controle)"
+
+msgid "Cancelled"
+msgstr "Geannuleerd"
+
+msgid "Server asked for a full resync"
+msgstr "De server vroeg om een volledige hersynchronisatie"
+
+msgid "Your sign-in expired. Sign in again to continue syncing."
+msgstr "Je aanmelding is verlopen. Meld je opnieuw aan om verder te synchroniseren."
+
+msgid "Fetching changes failed: %1"
+msgstr "Wijzigingen ophalen mislukt: %1"
+
+msgid "Cannot read the drive root: %1"
+msgstr "Kan de hoofdmap van de opslag niet lezen: %1"
+
+msgid "The synced folder was deleted online; stopping this sync root"
+msgstr "De gesynchroniseerde map is online verwijderd; deze synchronisatie stopt"
+
+msgid "it was removed online"
+msgstr "ze is online verwijderd"
+
+msgid "Gave up on an item after %1 attempts; see the activity list for the error"
+msgstr "Een item is na %1 pogingen opgegeven; zie de activiteitenlijst voor de fout"
+
+msgid "Cannot create folder %1"
+msgstr "Kan map %1 niet aanmaken"
+
+msgid "Listing a folder that was moved in failed: %1"
+msgstr "Een naar binnen verplaatste map kon niet worden opgesomd: %1"
+
+msgid "Not enough free disk space for %1 (%2). %3 is kept free; syncing continues when there is room."
+msgstr "Niet genoeg vrije schijfruimte voor %1 (%2). Er wordt %3 vrij gehouden; het synchroniseren gaat verder zodra er ruimte is."
+
+msgid "Cannot write %1"
+msgstr "Kan %1 niet schrijven"
+
+msgid "Download of %1 failed: no connection to Microsoft 365"
+msgstr "Downloaden van %1 is mislukt: geen verbinding met Microsoft 365"
+
+msgid "Download of %1 failed: %2"
+msgstr "Downloaden van %1 mislukt: %2"
+
+msgid "Download of %1 did not match the server hash; retrying next cycle"
+msgstr "Download van %1 komt niet overeen met de hash van de server; wordt bij de volgende ronde opnieuw geprobeerd"
+
+msgid "Cannot move the downloaded file into place: %1"
+msgstr "Kan het gedownloade bestand niet op zijn plaats zetten: %1"
+
+msgid "Downloaded %1"
+msgstr "%1 gedownload"
+
+msgid "Removed the local copy of folder %1 (no longer synced, moved to Trash)"
+msgstr "Lokale kopie van map %1 verwijderd (wordt niet meer gesynchroniseerd, verplaatst naar de prullenbak)"
+
+msgid "Deleted folder %1 (moved to Trash): it was deleted online"
+msgstr "Map %1 verwijderd (verplaatst naar de prullenbak): de map is online verwijderd"
+
+msgid "Kept folder %1: deleted online, but it holds new local files"
+msgstr "Map %1 bewaard: online verwijderd, maar bevat nieuwe lokale bestanden"
+
+msgid "Removed the local copy of %1 (no longer synced, moved to Trash)"
+msgstr "Lokale kopie van %1 verwijderd (wordt niet meer gesynchroniseerd, verplaatst naar de prullenbak)"
+
+msgid "Deleted %1 (moved to Trash): it was deleted online"
+msgstr "%1 verwijderd (verplaatst naar de prullenbak): het bestand is online verwijderd"
+
+msgid "Cannot move %1 to the Trash"
+msgstr "Kan %1 niet naar de prullenbak verplaatsen"
+
+msgid "Kept %1: deleted online, but changed here"
+msgstr "%1 bewaard: online verwijderd, maar hier gewijzigd"
+
+msgid "Restoring %1 items that disappeared locally"
+msgstr "%1 lokaal verdwenen items worden teruggezet"
+
+msgid "%1 of %2 synced items disappeared locally. Nothing was deleted online; choose to delete them online or to restore them."
+msgstr "%1 van %2 gesynchroniseerde items zijn lokaal verdwenen. Er is online niets verwijderd; kies of je ze ook online wilt verwijderen of wilt terugzetten."
+
+msgid "Not uploading folder %1: the name %2"
+msgstr "Map %1 wordt niet geüpload: de naam %2"
+
+msgid "%1 is an online-only placeholder; it was renamed back to %2"
+msgstr "%1 is een plaatsvervanger voor een bestand dat alleen online staat; de naam is teruggezet naar %2"
+
+msgid "Not uploading %1: the name %2"
+msgstr "%1 wordt niet geüpload: de naam %2"
+
+msgid "Cannot create %1 online: its parent folder is not synced"
+msgstr "Kan %1 niet online aanmaken: de bovenliggende map wordt niet gesynchroniseerd"
+
+msgid "Creating folder %1 online failed: %2"
+msgstr "Map %1 online aanmaken mislukt: %2"
+
+msgid "Cannot create folder %1 online: a file with that name exists"
+msgstr "Kan map %1 niet online aanmaken: er bestaat al een bestand met die naam"
+
+msgid "Created folder %1 online"
+msgstr "Map %1 online aangemaakt"
+
+msgid "Moving %1 to %2 online failed: %3"
+msgstr "%1 online verplaatsen naar %2 mislukt: %3"
+
+msgid "Moved %1 to %2 online"
+msgstr "%1 online verplaatst naar %2"
+
+msgid "Cannot upload %1: its folder is not synced"
+msgstr "Kan %1 niet uploaden: de map wordt niet gesynchroniseerd"
+
+msgid "Uploaded %1"
+msgstr "%1 geüpload"
+
+msgid "Cannot read %1"
+msgstr "Kan %1 niet lezen"
+
+msgid "Upload of %1 failed: %2"
+msgstr "Uploaden van %1 mislukt: %2"
+
+msgid "Uploaded changes to %1"
+msgstr "Wijzigingen in %1 geüpload"
+
+msgid "Cannot fetch the online version: %1"
+msgstr "Kan de online versie niet ophalen: %1"
+
+msgid "Kept folder %1: it was deleted here, but holds files that changed online"
+msgstr "Map %1 bewaard: hier verwijderd, maar bevat bestanden die online zijn gewijzigd"
+
+msgid "Deleted %1 online (it went to the site's recycle bin)"
+msgstr "%1 online verwijderd (staat in de prullenbak van de site)"
+
+msgid "Restored %1: it was deleted here but changed online"
+msgstr "%1 teruggezet: hier verwijderd, maar online gewijzigd"
+
+msgid "Deleting %1 online failed: %2"
+msgstr "%1 online verwijderen mislukt: %2"
+
+msgid "Could not download %1"
+msgstr "Kan %1 niet downloaden"
+
+msgid "Syncing %1"
+msgstr "%1 wordt gesynchroniseerd"
+
+msgid "Files are kept in %1"
+msgstr "De bestanden staan in %1"
+
+msgid "Anyone with the link can edit %1."
+msgstr "Iedereen met de link kan %1 bewerken."
+
+msgid "Anyone with the link can view %1."
+msgstr "Iedereen met de link kan %1 bekijken."
+
+msgid "People in your organisation with the link can edit %1."
+msgstr "Mensen in je organisatie met de link kunnen %1 bewerken."
+
+msgid "People in your organisation with the link can view %1."
+msgstr "Mensen in je organisatie met de link kunnen %1 bekijken."
+
+msgid "People in %1 with the link can edit %2."
+msgstr "Mensen in %1 met de link kunnen %2 bewerken."
+
+msgid "People in %1 with the link can view %2."
+msgstr "Mensen in %1 met de link kunnen %2 bekijken."
+
+msgid "Only people who already have access can open %1 with this link."
+msgstr "Alleen mensen die al toegang hebben, kunnen %1 met deze link openen."
+
+msgid "Link copied"
+msgstr "Link gekopieerd"
+
+msgid "Link Settings…"
+msgstr "Linkinstellingen…"
+
+msgid "Could not copy a link to %1"
+msgstr "Kan geen link naar %1 kopiëren"
+
+msgid "Sync conflict"
+msgstr "Synchronisatieconflict"
+
+msgid "%1 was changed here and online. Both versions were kept; your version is now %2."
+msgstr "%1 is hier en online gewijzigd. Beide versies zijn bewaard; jouw versie heet nu %2."
+
+msgid "Show in Folder"
+msgstr "In map tonen"
+
+msgid "Problem syncing %1"
+msgstr "Probleem bij synchroniseren van %1"
+
+msgid "Many files were removed from %1"
+msgstr "Veel bestanden verwijderd uit %1"
+
+msgid "%1 of %2 synced items are gone from this computer. Nothing has been deleted online yet."
+msgstr "%1 van %2 gesynchroniseerde items zijn van deze computer verdwenen. Er is online nog niets verwijderd."
+
+msgid "Delete Online Too"
+msgstr "Ook online verwijderen"
+
+msgid "Restore Files"
+msgstr "Bestanden terugzetten"
+
+msgid "Sign in again"
+msgstr "Opnieuw aanmelden"
+
+msgid "Your session expired, so files are not syncing."
+msgstr "Je sessie is verlopen, daarom worden bestanden niet gesynchroniseerd."
+
+msgid "Sign In"
+msgstr "Aanmelden"
+
+msgid "Run the setup wizard"
+msgstr "De installatie-assistent starten"
+
+msgid "Add a library"
+msgstr "Een bibliotheek toevoegen"
+
+msgid "Choose which folders of a library to sync"
+msgstr "Kiezen welke mappen van een bibliotheek worden gesynchroniseerd"
+
+msgid "Start syncing your own OneDrive"
+msgstr "Je eigen OneDrive gaan synchroniseren"
+
+msgid "Copy a link to a synced file or folder"
+msgstr "Een link naar een gesynchroniseerd bestand of map kopiëren"
+
+msgid "Open a synced file or folder in the browser"
+msgstr "Een gesynchroniseerd bestand of map in de browser openen"
+
+msgid "Download the given online-only files without opening them"
+msgstr "De opgegeven bestanden die alleen online staan downloaden zonder ze te openen"
+
+msgid "Share a synced file or folder"
+msgstr "Een gesynchroniseerd bestand of map delen"
+
+msgid "Show the version history of a synced file"
+msgstr "De versiegeschiedenis van een gesynchroniseerd bestand tonen"
+
+msgid "odopen:// link from the SharePoint Sync button, a .url shortcut file or an online-only .cloud file"
+msgstr "odopen://-link van de Synchroniseren-knop in SharePoint, een .url-snelkoppelingsbestand of een .cloud-bestand dat alleen online staat"
+
+msgid "Graph Sync"
+msgstr "Graph Sync"
+
+msgid "Sync client for Microsoft OneDrive and SharePoint on KDE Plasma"
+msgstr "Synchronisatieprogramma voor Microsoft OneDrive en SharePoint op KDE Plasma"
+
+msgid "Not affiliated with or endorsed by Microsoft. OneDrive and SharePoint are trademarks of Microsoft Corporation."
+msgstr "Niet verbonden aan of goedgekeurd door Microsoft. OneDrive en SharePoint zijn handelsmerken van Microsoft Corporation."
+
+msgid "Could not put the link on the clipboard."
+msgstr "Kan de link niet op het klembord zetten."
+
+msgctxt "file name of an old version: name, version, extension"
+msgid "%1 (version %2)%3"
+msgstr "%1 (versie %2)%3"
+
+msgid "The previous version (plasma-onedrive-linux) is still busy; try again in a moment."
+msgstr "De vorige versie (plasma-onedrive-linux) is nog bezig; probeer het zo opnieuw."
+
+msgid "Your settings from plasma-onedrive-linux could not be taken over: %1"
+msgstr "Je instellingen van plasma-onedrive-linux konden niet worden overgenomen: %1"
+
+msgctxt "name of the personal OneDrive, %1 is the organization"
+msgid "OneDrive - %1"
+msgstr "OneDrive - %1"
+
+msgid "Organization"
+msgstr "Organisatie"
+
+msgid "The app registration is not configured (client and tenant ID)."
+msgstr "De app-registratie is niet ingesteld (client- en tenant-ID)."
+
+msgid "The client ID looks like 00000000-0000-0000-0000-000000000000. Ask your IT administrator for it."
+msgstr "De client-ID ziet eruit als 00000000-0000-0000-0000-000000000000. Vraag je IT-beheerder erom."
+
+msgid "Enter your work e-mail address."
+msgstr "Vul je zakelijke e-mailadres in."
+
+msgid "No connection to Microsoft 365. Check the network and try again."
+msgstr "Geen verbinding met Microsoft 365. Controleer het netwerk en probeer het opnieuw."
+
+msgid "No Microsoft 365 organization was found for %1."
+msgstr "Er is geen Microsoft 365-organisatie gevonden voor %1."
+
+msgid "That is not a SharePoint address."
+msgstr "Dat is geen SharePoint-adres."
+
+msgctxt "folder name of the personal OneDrive, %1 is the organization"
+msgid "OneDrive - %1"
+msgstr "OneDrive - %1"
+
+msgid "This link does not contain a SharePoint library."
+msgstr "Deze link bevat geen SharePoint-bibliotheek."
+
+msgid "The site could not be opened: %1"
+msgstr "De site kon niet worden geopend: %1"
+
+msgid "The library could not be opened: %1"
+msgstr "De bibliotheek kon niet worden geopend: %1"
+
+msgid "The folder could not be opened: %1"
+msgstr "De map kon niet worden geopend: %1"
+
+msgid "Site"
+msgstr "Site"
+
+msgid "Library"
+msgstr "Bibliotheek"
+
+msgid "Choose a full folder path, such as %1."
+msgstr "Kies een volledig mappad, zoals %1."
+
+msgid "%1 cannot be synced as a whole: everything in it would be uploaded. Choose a folder inside it."
+msgstr "%1 kan niet als geheel worden gesynchroniseerd: alles daarin zou worden geüpload. Kies een map daarbinnen."
+
+msgid "%1 is already used by another synced library."
+msgstr "%1 wordt al gebruikt door een andere gesynchroniseerde bibliotheek."
+
+msgid "The sync service refused this library."
+msgstr "De synchronisatieservice heeft deze bibliotheek geweigerd."
+
+msgid "The sync service is not running: %1"
+msgstr "De synchronisatieservice draait niet: %1"
+
+msgctxt "@action:inmenu"
+msgid "Share…"
+msgstr "Delen…"
+
+msgctxt "@action:inmenu"
+msgid "Copy Link"
+msgstr "Link kopiëren"
+
+msgctxt "@action:inmenu"
+msgid "View Online"
+msgstr "Online bekijken"
+
+msgctxt "@action:inmenu"
+msgid "Version History…"
+msgstr "Versiegeschiedenis…"
+
+msgctxt "@action:inmenu"
+msgid "Download Now"
+msgstr "Nu downloaden"
+
+msgctxt "@action:inmenu"
+msgid "Always Keep on This Device"
+msgstr "Altijd op dit apparaat houden"
+
+msgctxt "@action:inmenu"
+msgid "Free Up Space"
+msgstr "Ruimte vrijmaken"
+
+msgctxt "@action:inmenu"
+msgid "Sync Now"
+msgstr "Nu synchroniseren"
+
+msgctxt "@action:inmenu"
+msgid "Choose Folders…"
+msgstr "Mappen kiezen…"
+
+msgctxt "@action:inmenu"
+msgid "Settings…"
+msgstr "Instellingen…"
+
+msgid "Sync a Library"
+msgstr "Bibliotheek synchroniseren"
+
+msgid "Choose Where to Keep the Files"
+msgstr "Kies waar de bestanden komen"
+
+msgid "This link was made for %1, but you are signed in as %2. Syncing uses your account's access."
+msgstr "Deze link is gemaakt voor %1, maar je bent aangemeld als %2. Bij het synchroniseren gelden de rechten van jouw account."
+
+msgid "Sign In to Continue"
+msgstr "Aanmelden om verder te gaan"
+
+msgid "Sync the folder %1 from %2?"
+msgstr "De map %1 uit %2 synchroniseren?"
+
+msgid "Sync %1 from %2?"
+msgstr "%1 uit %2 synchroniseren?"
+
+msgid "Files will be kept in:"
+msgstr "De bestanden komen in:"
+
+msgid "Change…"
+msgstr "Wijzigen…"
+
+msgid "This folder already contains files. They will be uploaded to the library."
+msgstr "Deze map bevat al bestanden. Die worden naar de bibliotheek geüpload."
+
+msgid "Syncing has started"
+msgstr "Het synchroniseren is begonnen"
+
+msgid "The files appear in %1. Follow progress in the system tray."
+msgstr "De bestanden verschijnen in %1. Volg de voortgang in het systeemvak."
+
+msgid "Sync"
+msgstr "Synchroniseren"
+
+msgid "Open Folder"
+msgstr "Map openen"
+
+msgid "Close"
+msgstr "Sluiten"
+
+msgid "Cancel"
+msgstr "Annuleren"
+
+msgid "Add a SharePoint Library"
+msgstr "SharePoint-bibliotheek toevoegen"
+
+msgid "Syncing has started."
+msgstr "Het synchroniseren is begonnen."
+
+msgid "%1 library selected"
+msgid_plural "%1 libraries selected"
+msgstr[0] "%1 bibliotheek geselecteerd"
+msgstr[1] "%1 bibliotheken geselecteerd"
+
+msgid "Choose Folders"
+msgstr "Mappen kiezen"
+
+msgid "Choose which folders of %1 are kept on this computer. Unticked folders stay online, but their local copies are moved to the Trash."
+msgstr "Kies welke mappen van %1 op deze computer worden bijgehouden. Niet-aangevinkte mappen blijven online staan, maar hun lokale kopieën gaan naar de prullenbak."
+
+msgid "Saved. Changes are applied with the next sync."
+msgstr "Opgeslagen. De wijzigingen worden bij de volgende synchronisatie toegepast."
+
+msgid "This library has no folders"
+msgstr "Deze bibliotheek heeft geen mappen"
+
+msgid "Save"
+msgstr "Opslaan"
+
+msgid "Sign In with a Code Instead"
+msgstr "In plaats daarvan aanmelden met een code"
+
+msgid "Open %1 on any device, enter the code below and sign in with your work account. This window continues by itself."
+msgstr "Open %1 op een willekeurig apparaat, voer de code hieronder in en meld je aan met je werkaccount. Dit venster gaat daarna vanzelf verder."
+
+msgid "Open Page"
+msgstr "Pagina openen"
+
+msgid "Copy Code"
+msgstr "Code kopiëren"
+
+msgid "Search for a site, or paste its address"
+msgstr "Zoek een site of plak het adres"
+
+msgid "Search results"
+msgstr "Zoekresultaten"
+
+msgid "Sites you follow"
+msgstr "Sites die je volgt"
+
+msgid "No sites found"
+msgstr "Geen sites gevonden"
+
+msgid "You do not follow any sites yet"
+msgstr "Je volgt nog geen sites"
+
+msgid "Search for a site by name, or paste the address of a SharePoint site or library. New sites can take a while to appear in search; pasting the address always works."
+msgstr "Zoek een site op naam of plak het adres van een SharePoint-site of -bibliotheek. Nieuwe sites verschijnen soms pas na een tijdje in de zoekresultaten; het adres plakken werkt altijd."
+
+msgid "Taking Over Your Settings"
+msgstr "Je instellingen overnemen"
+
+msgid "Your settings were not taken over yet"
+msgstr "Je instellingen zijn nog niet overgenomen"
+
+msgid "Taking over your settings from plasma-onedrive-linux…"
+msgstr "Je instellingen van plasma-onedrive-linux overnemen…"
+
+msgid "This client was called plasma-onedrive-linux before. Your folders, sync state and sign-in are moved over once; nothing is downloaded again."
+msgstr "Dit programma heette eerder plasma-onedrive-linux. Je mappen, synchronisatiestatus en aanmelding worden eenmalig overgenomen; er wordt niets opnieuw gedownload."
+
+msgid "Try Again"
+msgstr "Opnieuw proberen"
+
+msgid "just now"
+msgstr "zojuist"
+
+msgid "1 minute ago"
+msgid_plural "%1 minutes ago"
+msgstr[0] "1 minuut geleden"
+msgstr[1] "%1 minuten geleden"
+
+msgid "1 hour ago"
+msgid_plural "%1 hours ago"
+msgstr[0] "1 uur geleden"
+msgstr[1] "%1 uur geleden"
+
+msgid "The sync service is not running"
+msgstr "De synchronisatieservice draait niet"
+
+msgid "Not signed in"
+msgstr "Niet aangemeld"
+
+msgid "Syncing is paused until %1"
+msgstr "Synchroniseren is gepauzeerd tot %1"
+
+msgid "Syncing is paused"
+msgstr "Synchroniseren is gepauzeerd"
+
+msgid "Offline: syncing continues when the network is back"
+msgstr "Offline: het synchroniseren gaat verder zodra het netwerk terug is"
+
+msgid "Some locations have a problem"
+msgstr "Bij sommige locaties is er een probleem"
+
+msgid "Syncing…"
+msgstr "Bezig met synchroniseren…"
+
+msgid "Your files are synced"
+msgstr "Je bestanden zijn gesynchroniseerd"
+
+msgid "Nothing is synced yet"
+msgstr "Er wordt nog niets gesynchroniseerd"
+
+msgid "Paused"
+msgstr "Gepauzeerd"
+
+msgid "Many files were removed here; waiting for your decision"
+msgstr "Hier zijn veel bestanden verwijderd; wacht op je beslissing"
+
+msgid "Stopped"
+msgstr "Gestopt"
+
+msgid "Up to date, last synced %1"
+msgstr "Bijgewerkt, laatst gesynchroniseerd %1"
+
+msgid "Waiting for the first sync"
+msgstr "Wacht op de eerste synchronisatie"
+
+msgid "Stop Syncing?"
+msgstr "Synchroniseren stoppen?"
+
+msgid "%1 will no longer be synced. The files stay online, and the local copies in %2 are kept as ordinary files."
+msgstr "%1 wordt niet meer gesynchroniseerd. De bestanden blijven online staan en de lokale kopieën in %2 blijven bewaard als gewone bestanden."
+
+msgid "Stop Syncing"
+msgstr "Synchroniseren stoppen"
+
+msgid "Sign Out of This Computer?"
+msgstr "Afmelden op deze computer?"
+
+msgid "Syncing stops until you sign in again. Your local files are kept."
+msgstr "Het synchroniseren stopt totdat je je opnieuw aanmeldt. Je lokale bestanden blijven bewaard."
+
+msgid "Sign Out"
+msgstr "Afmelden"
+
+msgid "Account"
+msgstr "Account"
+
+msgid "Notifications"
+msgstr "Meldingen"
+
+msgid "Advanced"
+msgstr "Geavanceerd"
+
+msgid "About"
+msgstr "Over"
+
+msgid "The sync service is not running, so nothing is being synced."
+msgstr "De synchronisatieservice draait niet, dus er wordt niets gesynchroniseerd."
+
+msgid "Start"
+msgstr "Starten"
+
+msgid "Resume Syncing"
+msgstr "Synchroniseren hervatten"
+
+msgid "Pause Syncing"
+msgstr "Synchroniseren pauzeren"
+
+msgid "2 Hours"
+msgstr "2 uur"
+
+msgid "8 Hours"
+msgstr "8 uur"
+
+msgid "24 Hours"
+msgstr "24 uur"
+
+msgid "Sync Now"
+msgstr "Nu synchroniseren"
+
+msgid "Pause syncing on metered connections (mobile hotspots)"
+msgstr "Synchroniseren pauzeren op verbindingen met een datalimiet (mobiele hotspots)"
+
+msgid "Copy Link gives people:"
+msgstr "Link kopiëren geeft mensen:"
+
+msgid "View access"
+msgstr "Leestoegang"
+
+msgid "Edit access"
+msgstr "Bewerktoegang"
+
+msgid "Locations that are syncing"
+msgstr "Locaties die worden gesynchroniseerd"
+
+msgid "Add a Library…"
+msgstr "Bibliotheek toevoegen…"
+
+msgid "Use the Sync button in SharePoint, or add a library here."
+msgstr "Gebruik de knop Synchroniseren in SharePoint of voeg hier een bibliotheek toe."
+
+msgctxt "%1 is a sync location such as OneDrive - Contoso"
+msgid "Shortcut in %1"
+msgstr "Snelkoppeling in %1"
+
+msgid "1 item"
+msgid_plural "%1 items"
+msgstr[0] "1 item"
+msgstr[1] "%1 items"
+
+msgid "1 folder not synced"
+msgid_plural "%1 folders not synced"
+msgstr[0] "1 map wordt niet gesynchroniseerd"
+msgstr[1] "%1 mappen worden niet gesynchroniseerd"
+
+msgid "1 online only"
+msgid_plural "%1 online only"
+msgstr[0] "1 alleen online"
+msgstr[1] "%1 alleen online"
+
+msgid "Files On-Demand: download files only when you open them"
+msgstr "Bestanden op aanvraag: bestanden pas downloaden als je ze opent"
+
+msgid "New files from online appear as placeholders (name.cloud) and are downloaded when you open them. Right-click files or folders in Dolphin to keep them on this computer or to free up space. Switching this off downloads everything again."
+msgstr "Nieuwe bestanden van online verschijnen als plaatsvervanger (naam.cloud) en worden gedownload als je ze opent. Klik in Dolphin met rechts op bestanden of mappen om ze op deze computer te houden of om ruimte vrij te maken. Uitschakelen downloadt alles weer."
+
+msgid "To stop syncing it, remove the shortcut in OneDrive online, or delete this folder here."
+msgstr "Verwijder de snelkoppeling online in OneDrive, of verwijder deze map hier, om het synchroniseren te stoppen."
+
+msgid "View Online"
+msgstr "Online bekijken"
+
+msgid "Choose Folders…"
+msgstr "Mappen kiezen…"
+
+msgid "Name:"
+msgstr "Naam:"
+
+msgid "Account:"
+msgstr "Account:"
+
+msgid "Organization:"
+msgstr "Organisatie:"
+
+msgid "Storage:"
+msgstr "Opslag:"
+
+msgid "%1 of %2 used"
+msgstr "%1 van %2 gebruikt"
+
+msgid "Your OneDrive:"
+msgstr "Je OneDrive:"
+
+msgctxt "%1 is the organization"
+msgid "Sync OneDrive - %1"
+msgstr "OneDrive - %1 synchroniseren"
+
+msgid "Sign Out of This Computer…"
+msgstr "Afmelden op deze computer…"
+
+msgid "Sign In…"
+msgstr "Aanmelden…"
+
+msgid "You are notified about sync conflicts, problems, newly synced libraries, many removed files and an expired sign-in. Choose which of these show a popup, play a sound or are only logged."
+msgstr "Je krijgt een melding bij synchronisatieconflicten, problemen, nieuw gesynchroniseerde bibliotheken, veel verwijderde bestanden en een verlopen aanmelding. Kies welke hiervan een pop-up tonen, een geluid afspelen of alleen worden vastgelegd."
+
+msgid "Configure Notifications…"
+msgstr "Meldingen instellen…"
+
+msgid "Network"
+msgstr "Netwerk"
+
+msgid "Download rate:"
+msgstr "Downloadsnelheid:"
+
+msgid "Limit to"
+msgstr "Beperken tot"
+
+msgctxt "kilobytes per second"
+msgid "KB/s"
+msgstr "KB/s"
+
+msgid "Upload rate:"
+msgstr "Uploadsnelheid:"
+
+msgid "Files Not to Sync"
+msgstr "Niet te synchroniseren bestanden"
+
+msgid "Names:"
+msgstr "Namen:"
+
+msgid "One per line, for example:\n*.tmp\nnode_modules"
+msgstr "Eén per regel, bijvoorbeeld:\n*.tmp\nnode_modules"
+
+msgid "Hidden files and folders (names starting with a dot)"
+msgstr "Verborgen bestanden en mappen (namen die met een punt beginnen)"
+
+msgid "These stay on this computer and online as they are, but changes are no longer synced. To keep a whole folder on this computer only, put an empty file named .nosync in it."
+msgstr "Deze blijven op deze computer en online zoals ze zijn, maar wijzigingen worden niet meer gesynchroniseerd. Zet een leeg bestand met de naam .nosync in een map om die hele map alleen op deze computer te houden."
+
+msgid "Disk Space"
+msgstr "Schijfruimte"
+
+msgid "Always keep free:"
+msgstr "Altijd vrij houden:"
+
+msgctxt "megabytes"
+msgid "MB"
+msgstr "MB"
+
+msgid "App Registration"
+msgstr "App-registratie"
+
+msgid "The client ID of your organization's app registration and your organization (tenant). Change these only when your IT administrator asks you to; changing them signs you out of this computer."
+msgstr "De client-ID van de app-registratie van je organisatie en je organisatie (tenant). Wijzig deze alleen als je IT-beheerder daarom vraagt; door ze te wijzigen word je op deze computer afgemeld."
+
+msgid "Client ID:"
+msgstr "Client-ID:"
+
+msgid "Tenant ID or work e-mail address:"
+msgstr "Tenant-ID of zakelijk e-mailadres:"
+
+msgid "Looking up your organization…"
+msgstr "Je organisatie opzoeken…"
+
+msgid "Saved. Sign in again to continue syncing."
+msgstr "Opgeslagen. Meld je opnieuw aan om verder te synchroniseren."
+
+msgid "Troubleshooting"
+msgstr "Problemen oplossen"
+
+msgid "Compares every file on this computer with OneDrive and SharePoint again. Use this when something looks out of sync; nothing is deleted by it."
+msgstr "Vergelijkt elk bestand op deze computer opnieuw met OneDrive en SharePoint. Gebruik dit als iets niet gesynchroniseerd lijkt; hierbij wordt niets verwijderd."
+
+msgid "Check All Files Again"
+msgstr "Alle bestanden opnieuw controleren"
+
+msgid "Checking; this can take a while for large libraries."
+msgstr "Bezig met controleren; bij grote bibliotheken kan dit even duren."
+
+msgid "Version %1"
+msgstr "Versie %1"
+
+msgid "License:"
+msgstr "Licentie:"
+
+msgid "GNU General Public License, version 3 or later"
+msgstr "GNU General Public License, versie 3 of later"
+
+msgid "Sync state:"
+msgstr "Synchronisatiestatus:"
+
+msgid "Logs:"
+msgstr "Logboeken:"
+
+msgid "Graph Sync is not affiliated with or endorsed by Microsoft. OneDrive and SharePoint are trademarks of Microsoft Corporation."
+msgstr "Graph Sync is niet verbonden aan of goedgekeurd door Microsoft. OneDrive en SharePoint zijn handelsmerken van Microsoft Corporation."
+
+msgid "Welcome"
+msgstr "Welkom"
+
+msgid "Where to Keep Your Files"
+msgstr "Waar je bestanden komen"
+
+msgid "Your OneDrive"
+msgstr "Je OneDrive"
+
+msgid "SharePoint Libraries"
+msgstr "SharePoint-bibliotheken"
+
+msgid "Ready to Sync"
+msgstr "Klaar om te synchroniseren"
+
+msgid "All Set"
+msgstr "Klaar"
+
+msgid "Choose a Base Folder"
+msgstr "Kies een basismap"
+
+msgid "Graph Sync keeps your OneDrive and SharePoint libraries in folders on this computer. Sign in with your work account to begin."
+msgstr "Graph Sync houdt je OneDrive en SharePoint-bibliotheken bij in mappen op deze computer. Meld je aan met je werkaccount om te beginnen."
+
+msgid "First enter the client ID of your organization's app registration, which you get from your IT administrator (or paste the setup text you got). Your organization is found from your work e-mail address."
+msgstr "Vul eerst de client-ID van de app-registratie van je organisatie in; die krijg je van je IT-beheerder (of plak de installatietekst die je hebt gekregen). Je organisatie wordt gevonden aan de hand van je zakelijke e-mailadres."
+
+msgid "From your IT administrator"
+msgstr "Van je IT-beheerder"
+
+msgid "Work e-mail address:"
+msgstr "Zakelijk e-mailadres:"
+
+msgctxt "example e-mail address"
+msgid "you@example.com"
+msgstr "jij@voorbeeld.nl"
+
+msgid "Continue"
+msgstr "Doorgaan"
+
+msgid "Waiting for the code…"
+msgstr "Wachten op de code…"
+
+msgid "Waiting for the browser…"
+msgstr "Wachten op de browser…"
+
+msgid "Signed in as %1 (%2)"
+msgstr "Aangemeld als %1 (%2)"
+
+msgid "Choose the folder under which your synced files are kept. Each library gets its own folder inside it."
+msgstr "Kies de map waaronder je gesynchroniseerde bestanden komen. Elke bibliotheek krijgt daarin een eigen map."
+
+msgid "Browse…"
+msgstr "Bladeren…"
+
+msgid "Your OneDrive: %1\nSharePoint libraries: %2"
+msgstr "Je OneDrive: %1\\nSharePoint-bibliotheken: %2"
+
+msgctxt "%1 is the organization"
+msgid "Sync my OneDrive - %1"
+msgstr "Mijn OneDrive - %1 synchroniseren"
+
+msgid "Your own files will be kept in %1."
+msgstr "Je eigen bestanden komen in %1."
+
+msgid "Your own OneDrive will not be synced. You can turn it on later in the settings."
+msgstr "Je eigen OneDrive wordt niet gesynchroniseerd. Je kunt dit later in de instellingen aanzetten."
+
+msgid "The following will be synced:"
+msgstr "Het volgende wordt gesynchroniseerd:"
+
+msgid "Nothing selected yet. Go back to pick your OneDrive or a library, or finish and add libraries later."
+msgstr "Nog niets geselecteerd. Ga terug om je OneDrive of een bibliotheek te kiezen, of rond af en voeg later bibliotheken toe."
+
+msgctxt "%1 is the organization"
+msgid "OneDrive - %1"
+msgstr "OneDrive - %1"
+
+msgid "You're all set"
+msgstr "Alles is klaar"
+
+msgid "Syncing has started. The Graph Sync icon appears in the system tray after you log out and back in, or now with the button below (the panel restarts briefly). To sync another library later, use the Sync button in SharePoint."
+msgstr "Het synchroniseren is begonnen. Het pictogram van Graph Sync verschijnt in het systeemvak nadat je je hebt af- en aangemeld, of nu met de knop hieronder (het paneel start dan even opnieuw). Gebruik later de Synchroniseren-knop in SharePoint om nog een bibliotheek te synchroniseren."
+
+msgid "Syncing has started. Look for the Graph Sync icon in the system tray to follow progress. To sync another library later, use the Sync button in SharePoint."
+msgstr "Het synchroniseren is begonnen. Volg de voortgang via het pictogram van Graph Sync in het systeemvak. Gebruik later de knop Synchroniseren in SharePoint om nog een bibliotheek toe te voegen."
+
+msgid "Show the Tray Icon (Restarts the Plasma Panel)"
+msgstr "Pictogram in systeemvak tonen (start het Plasma-paneel opnieuw)"
+
+msgid "Back"
+msgstr "Terug"
+
+msgid "Next"
+msgstr "Volgende"
+
+msgid "Start Syncing"
+msgstr "Synchroniseren starten"
+
+msgid "Owner"
+msgstr "Eigenaar"
+
+msgid "Can edit"
+msgstr "Kan bewerken"
+
+msgid "Can view"
+msgstr "Kan bekijken"
+
+msgid "Anyone with the link"
+msgstr "Iedereen met de link"
+
+msgid "People in %1 with the link"
+msgstr "Mensen in %1 met de link"
+
+msgid "People in your organisation with the link"
+msgstr "Mensen in je organisatie met de link"
+
+msgid "Specific people with the link"
+msgstr "Specifieke mensen met de link"
+
+msgid "Share “%1”"
+msgstr "“%1” delen"
+
+msgid "Invite people"
+msgstr "Mensen uitnodigen"
+
+msgid "Type an e-mail address"
+msgstr "Typ een e-mailadres"
+
+msgid "Add a name or e-mail address"
+msgstr "Voeg een naam of e-mailadres toe"
+
+msgid "Add"
+msgstr "Toevoegen"
+
+msgid "Send an e-mail invitation"
+msgstr "Een uitnodiging per e-mail sturen"
+
+msgid "Add a message (optional)"
+msgstr "Voeg een bericht toe (optioneel)"
+
+msgid "Send"
+msgstr "Versturen"
+
+msgid "Give Access"
+msgstr "Toegang geven"
+
+msgid "Shared with 1 person."
+msgid_plural "Shared with %1 people."
+msgstr[0] "Gedeeld met 1 persoon."
+msgstr[1] "Gedeeld met %1 personen."
+
+msgid "Copy a link"
+msgstr "Een link kopiëren"
+
+msgid "Who:"
+msgstr "Wie:"
+
+msgid "People in %1"
+msgstr "Mensen in %1"
+
+msgid "People in your organisation"
+msgstr "Mensen in je organisatie"
+
+msgid "Permission:"
+msgstr "Recht:"
+
+msgid "Expires:"
+msgstr "Verloopt:"
+
+msgid "Never"
+msgstr "Nooit"
+
+msgid "In 1 day"
+msgstr "Over 1 dag"
+
+msgid "In 7 days"
+msgstr "Over 7 dagen"
+
+msgid "In 30 days"
+msgstr "Over 30 dagen"
+
+msgid "Copy Link"
+msgstr "Link kopiëren"
+
+msgid "Link copied."
+msgstr "Link gekopieerd."
+
+msgid "Who has access"
+msgstr "Wie heeft toegang"
+
+msgid "expires %1"
+msgstr "verloopt %1"
+
+msgid "Copy"
+msgstr "Kopiëren"
+
+msgid "Remove Link"
+msgstr "Link verwijderen"
+
+msgid "The link no longer works."
+msgstr "De link werkt niet meer."
+
+msgid "Access for people and groups is managed in the browser. Changing permissions there needs owner rights on the site; everyone can see who has access through Share in the online document."
+msgstr "Toegang voor mensen en groepen beheer je in de browser. Daar rechten wijzigen vraagt eigenaarsrechten op de site; via Delen in het online document kan iedereen zien wie toegang heeft."
+
+msgid "Manage Permissions in Browser"
+msgstr "Rechten beheren in de browser"
+
+msgid "Open in Browser"
+msgstr "Openen in de browser"
+
+msgid "Signed in as %1"
+msgstr "Aangemeld als %1"
+
+msgid "Sign in to continue syncing"
+msgstr "Meld je aan om verder te synchroniseren"
+
+msgid "Syncing continues in the background."
+msgstr "Het synchroniseren gaat op de achtergrond verder."
+
+msgid "Your session expired. Sign in with your work account in the browser."
+msgstr "Je sessie is verlopen. Meld je aan met je werkaccount in de browser."
+
+msgid "Version History of “%1”"
+msgstr "Versiegeschiedenis van “%1”"
+
+msgid "Folders have no version history"
+msgstr "Mappen hebben geen versiegeschiedenis"
+
+msgid "No earlier versions"
+msgstr "Geen eerdere versies"
+
+msgid "Version %1 (current)"
+msgstr "Versie %1 (huidig)"
+
+msgid "Open"
+msgstr "Openen"
+
+msgid "Save a Copy…"
+msgstr "Kopie opslaan…"
+
+msgid "Restore"
+msgstr "Terugzetten"
+
+msgid "Save Version %1"
+msgstr "Versie %1 opslaan"
+
+msgctxt "file name of a saved old version: name, version, extension"
+msgid "%1 (version %2)%3"
+msgstr "%1 (versie %2)%3"
+
+msgid "Version %1 saved."
+msgstr "Versie %1 opgeslagen."
+
+msgid "Restore Version %1?"
+msgstr "Versie %1 terugzetten?"
+
+msgid "The online file goes back to this version. The current version stays in the history, so you can switch back."
+msgstr "Het online bestand gaat terug naar deze versie. De huidige versie blijft in de geschiedenis staan, dus je kunt terug."
+
+msgid "%1 has this file open. Close it first, or saving it there later will cause a conflict."
+msgstr "%1 heeft dit bestand open. Sluit het eerst, anders geeft opslaan daar later een conflict."
+
+msgid "Version %1 restored. The file on this computer is updated in a moment."
+msgstr "Versie %1 is teruggezet. Het bestand op deze computer wordt zo bijgewerkt."

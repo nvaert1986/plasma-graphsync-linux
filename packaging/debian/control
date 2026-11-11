@@ -1,0 +1,44 @@
+Source: plasma-graphsync-linux
+Section: net
+Priority: optional
+Maintainer: nvaert1986 <25772781+nvaert1986@users.noreply.github.com>
+Build-Depends: debhelper-compat (= 13),
+               cmake,
+               extra-cmake-modules,
+               gettext,
+               libkf6bookmarks-dev,
+               libkf6config-dev,
+               libkf6coreaddons-dev,
+               libkf6dbusaddons-dev,
+               libkf6guiaddons-dev,
+               libkf6i18n-dev,
+               libkf6kcmutils-dev,
+               libkf6kio-dev,
+               libkf6notifications-dev,
+               libkf6windowsystem-dev,
+               libplasma-dev,
+               qt6-base-dev,
+               qt6-declarative-dev,
+               qt6-networkauth-dev,
+               qt6-websockets-dev,
+               qtkeychain-qt6-dev
+Standards-Version: 4.7.0
+Homepage: https://github.com/nvaert1986/plasma-graphsync-linux
+Rules-Requires-Root: no
+
+Package: plasma-graphsync-linux
+Architecture: any
+# Called plasma-onedrive-linux before 0.7.0; this package takes its place
+Conflicts: plasma-onedrive-linux
+Replaces: plasma-onedrive-linux
+Depends: ${misc:Depends},
+         ${shlibs:Depends},
+         libqt6sql6-sqlite,
+         plasma-workspace,
+         qml6-module-org-kde-kirigami,
+         qml6-module-qtquick-dialogs,
+         xdg-utils
+Description: Sync OneDrive for Business and SharePoint libraries on KDE Plasma
+ Keeps OneDrive for Business and SharePoint document libraries in folders on
+ this computer, with a system tray applet, a System Settings page and support
+ for the Sync button in SharePoint. Not affiliated with Microsoft.

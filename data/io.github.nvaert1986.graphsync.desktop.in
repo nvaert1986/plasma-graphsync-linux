@@ -1,0 +1,15 @@
+[Desktop Entry]
+Type=Application
+Name=Graph Sync
+GenericName=OneDrive and SharePoint Sync
+Comment=Sync client for Microsoft OneDrive and SharePoint on KDE Plasma
+Exec=@KDE_INSTALL_FULL_BINDIR@/plasma-graphsync-linux %u
+Icon=io.github.nvaert1986.graphsync
+Terminal=false
+MimeType=x-scheme-handler/odopen;application/x-mswinurl;application/x-plasma-graphsync-linux-placeholder;
+Categories=Qt;KDE;Network;FileTransfer;
+Keywords=OneDrive;SharePoint;sync;cloud;Microsoft 365;
+StartupNotify=true
+X-DBUS-StartupType=Unique
+# Opening a placeholder must win over the "Download Now" entry for the same type
+InitialPreference=10

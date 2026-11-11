@@ -1,0 +1,4 @@
+[D-BUS Service]
+Name=io.github.nvaert1986.GraphSync
+Exec=@KDE_INSTALL_FULL_BINDIR@/graphsyncd
+SystemdService=plasma-graphsync-linux.service

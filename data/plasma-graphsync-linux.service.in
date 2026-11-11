@@ -1,0 +1,19 @@
+# SPDX-FileCopyrightText: 2026 plasma-graphsync-linux contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+[Unit]
+Description=plasma-graphsync-linux sync daemon
+Documentation=https://github.com/nvaert1986/plasma-graphsync-linux
+PartOf=graphical-session.target
+After=graphical-session.target
+
+[Service]
+Type=dbus
+BusName=io.github.nvaert1986.GraphSync
+ExecStart=@KDE_INSTALL_FULL_BINDIR@/graphsyncd
+Restart=on-failure
+RestartSec=10
+Slice=background.slice
+
+[Install]
+WantedBy=graphical-session.target

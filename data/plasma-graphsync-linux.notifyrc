@@ -1,0 +1,42 @@
+[Global]
+IconName=io.github.nvaert1986.graphsync
+Name=Graph Sync
+Comment=Sync client for Microsoft OneDrive and SharePoint on KDE Plasma
+DesktopEntry=io.github.nvaert1986.graphsync
+
+[Event/conflict]
+Name=Sync conflict
+Comment=A file was changed here and online; both versions were kept
+Action=Popup
+
+[Event/syncError]
+Name=Sync problem
+Comment=A file or library could not be synced
+Action=Popup
+
+[Event/rootAdded]
+Name=Library added
+Comment=A library or folder started syncing
+Action=Popup
+
+[Event/bigDelete]
+Name=Many files removed
+Comment=Many synced files disappeared from this computer
+Action=Popup
+Urgency=Critical
+
+[Event/signedOut]
+Name=Signed out
+Comment=The session expired and syncing stopped
+Action=Popup
+
+[Event/linkCopied]
+Name=Link copied
+Comment=A sharing link was put on the clipboard
+Action=Popup
+Urgency=Low
+
+[Event/linkError]
+Name=Link not copied
+Comment=A sharing link could not be created
+Action=Popup

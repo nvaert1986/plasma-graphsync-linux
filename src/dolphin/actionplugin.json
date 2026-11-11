@@ -1,0 +1,11 @@
+{
+    "KPlugin": {
+        "Description": "Share, copy link, version history and view online for OneDrive and SharePoint folders",
+        "Icon": "io.github.nvaert1986.graphsync",
+        "MimeTypes": [
+            "application/octet-stream",
+            "inode/directory"
+        ],
+        "Name": "Graph Sync"
+    }
+}

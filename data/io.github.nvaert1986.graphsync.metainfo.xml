@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- SPDX-FileCopyrightText: 2026 plasma-graphsync-linux contributors -->
+<!-- SPDX-License-Identifier: CC0-1.0 -->
+<component type="desktop-application">
+  <id>io.github.nvaert1986.graphsync</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-3.0-or-later</project_license>
+  <name>Graph Sync</name>
+  <summary>Sync client for Microsoft OneDrive and SharePoint</summary>
+  <description>
+    <p>
+      Graph Sync keeps OneDrive for Business and SharePoint document libraries in
+      folders on your computer, with a system tray applet, settings in System Settings and
+      support for the Sync button in SharePoint.
+    </p>
+    <p>
+      It is not affiliated with or endorsed by Microsoft. OneDrive and SharePoint are trademarks
+      of Microsoft Corporation.
+    </p>
+  </description>
+  <launchable type="desktop-id">io.github.nvaert1986.graphsync.desktop</launchable>
+  <url type="homepage">https://github.com/nvaert1986/plasma-graphsync-linux</url>
+  <developer id="io.github.nvaert1986">
+    <name>plasma-graphsync-linux contributors</name>
+  </developer>
+  <provides>
+    <binary>plasma-graphsync-linux</binary>
+    <binary>graphsyncd</binary>
+    <binary>graphsyncctl</binary>
+  </provides>
+  <screenshots>
+    <screenshot type="default">
+      <caption>Settings with the synced OneDrive and SharePoint locations</caption>
+      <image>https://raw.githubusercontent.com/nvaert1986/plasma-graphsync-linux/main/screenshots/settings.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>Sharing a file: invite people, copy a link, see who has access</caption>
+      <image>https://raw.githubusercontent.com/nvaert1986/plasma-graphsync-linux/main/screenshots/share.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>Recent activity in the system tray</caption>
+      <image>https://raw.githubusercontent.com/nvaert1986/plasma-graphsync-linux/main/screenshots/tray-popup.png</image>
+    </screenshot>
+  </screenshots>
+  <releases>
+    <release version="0.7.2" date="2026-11-11"/>
+    <release version="0.7.1" date="2026-11-11"/>
+    <release version="0.7.0" date="2026-11-11"/>
+    <release version="0.6.6" date="2026-11-10"/>
+    <release version="0.6.5" date="2026-11-10"/>
+    <release version="0.6.4" date="2026-11-10"/>
+    <release version="0.6.3" date="2026-11-10"/>
+    <release version="0.6.2" date="2026-11-10"/>
+    <release version="0.6.1" date="2026-11-10"/>
+    <release version="0.6.0" date="2026-11-10"/>
+    <release version="0.5.1" date="2026-11-10"/>
+    <release version="0.5.0" date="2026-11-10"/>
+    <release version="0.4.2" date="2026-11-10"/>
+    <release version="0.4.1" date="2026-11-10"/>
+    <release version="0.4.0" date="2026-11-10"/>
+    <release version="0.2.0" date="2026-11-10"/>
+    <release version="0.1.0" date="2026-11-09"/>
+  </releases>
+  <content_rating type="oars-1.1"/>
+</component>

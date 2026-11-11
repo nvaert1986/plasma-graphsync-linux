@@ -1,0 +1,21 @@
+# SPDX-FileCopyrightText: 2026 plasma-graphsync-linux contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+name: Feature request
+description: An idea or a missing feature
+labels: [enhancement]
+body:
+  - type: textarea
+    id: need
+    attributes:
+      label: What do you want to do?
+      description: The situation and what you need, rather than a solution
+    validations:
+      required: true
+  - type: textarea
+    id: windows
+    attributes:
+      label: How does the Windows client do this? (if it does)
+  - type: textarea
+    id: more
+    attributes:
+      label: Anything else

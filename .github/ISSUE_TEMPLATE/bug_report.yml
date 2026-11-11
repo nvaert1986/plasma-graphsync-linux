@@ -1,0 +1,52 @@
+# SPDX-FileCopyrightText: 2026 plasma-graphsync-linux contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+name: Bug report
+description: Something does not work as it should
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. **Remove names, e-mail addresses, organisation and site names from
+        anything you paste below.** Security problems: see SECURITY.md instead.
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Output of `graphsyncctl --version`
+    validations:
+      required: true
+  - type: input
+    id: system
+    attributes:
+      label: Distribution, Plasma and Qt version
+      description: For example "Debian 13, Plasma 6.3.5, Qt 6.8.2" (System Settings > About this System)
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. ...
+        2. ...
+  - type: textarea
+    id: log
+    attributes:
+      label: Log
+      description: |
+        `journalctl --user -u plasma-graphsync-linux.service --since "1 hour ago"` and, for sync
+        problems, `graphsyncctl status`. Remove personal data first.
+      render: text
+  - type: checkboxes
+    id: data
+    attributes:
+      label: Files
+      options:
+        - label: Files were lost, deleted or overwritten (we give these priority)

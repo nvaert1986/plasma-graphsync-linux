@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Download Now
+Name[nl]=Nu downloaden
+Comment=Download online-only files without opening them
+Comment[nl]=Bestanden die alleen online staan downloaden zonder ze te openen
+Exec=@KDE_INSTALL_FULL_BINDIR@/plasma-graphsync-linux --download %F
+Icon=cloud-download
+Terminal=false
+NoDisplay=true
+MimeType=application/x-plasma-graphsync-linux-placeholder;

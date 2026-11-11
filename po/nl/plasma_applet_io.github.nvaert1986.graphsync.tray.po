@@ -1,0 +1,181 @@
+# Dutch translation of plasma_applet_io.github.nvaert1986.graphsync.tray
+# SPDX-FileCopyrightText: 2026 plasma-graphsync-linux contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+msgid ""
+msgstr ""
+"Project-Id-Version: plasma_applet_io.github.nvaert1986.graphsync.tray\n"
+"PO-Revision-Date: 2026-11-11 10:35+0100\n"
+"Last-Translator: plasma-graphsync-linux contributors\n"
+"Language-Team: Dutch\n"
+"Language: nl\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=n != 1;\n"
+
+msgid "Offline: syncing continues when the network is back"
+msgstr "Offline: het synchroniseren gaat verder zodra het netwerk terug is"
+
+msgid "The sync service is not running"
+msgstr "De synchronisatieservice draait niet"
+
+msgid "Not signed in"
+msgstr "Niet aangemeld"
+
+msgid "Paused on a metered network"
+msgstr "Gepauzeerd op een netwerk met datalimiet"
+
+msgid "Paused until %1"
+msgstr "Gepauzeerd tot %1"
+
+msgid "Syncing is paused"
+msgstr "Synchroniseren is gepauzeerd"
+
+msgid "Waiting for your decision"
+msgstr "Wacht op je beslissing"
+
+msgid "1 library has a problem"
+msgid_plural "%1 libraries have problems"
+msgstr[0] "1 bibliotheek heeft een probleem"
+msgstr[1] "%1 bibliotheken hebben problemen"
+
+msgid "Syncing…"
+msgstr "Bezig met synchroniseren…"
+
+msgid "Nothing is synced yet"
+msgstr "Er wordt nog niets gesynchroniseerd"
+
+msgid "Your files are synced"
+msgstr "Je bestanden zijn gesynchroniseerd"
+
+msgid "Graph Sync"
+msgstr "Graph Sync"
+
+msgid "Open Folder"
+msgstr "Map openen"
+
+msgid "View Online"
+msgstr "Online bekijken"
+
+msgid "Resume Syncing"
+msgstr "Synchroniseren hervatten"
+
+msgid "Pause for 2 Hours"
+msgstr "2 uur pauzeren"
+
+msgid "Pause for 8 Hours"
+msgstr "8 uur pauzeren"
+
+msgid "Pause for 24 Hours"
+msgstr "24 uur pauzeren"
+
+msgid "Settings"
+msgstr "Instellingen"
+
+msgid "Quit Graph Sync"
+msgstr "Graph Sync afsluiten"
+
+msgid "Just now"
+msgstr "Zojuist"
+
+msgid "1 minute ago"
+msgid_plural "%1 minutes ago"
+msgstr[0] "1 minuut geleden"
+msgstr[1] "%1 minuten geleden"
+
+msgid "1 hour ago"
+msgid_plural "%1 hours ago"
+msgstr[0] "1 uur geleden"
+msgstr[1] "%1 uur geleden"
+
+msgid "Updated by %1 in %2"
+msgstr "Bijgewerkt door %1 in %2"
+
+msgid "Downloaded to %1"
+msgstr "Gedownload naar %1"
+
+msgid "Uploaded to %1"
+msgstr "Geüpload naar %1"
+
+msgid "Moved in %1"
+msgstr "Verplaatst in %1"
+
+msgid "Folder created in %1"
+msgstr "Map aangemaakt in %1"
+
+msgid "Removed from this computer"
+msgstr "Verwijderd van deze computer"
+
+msgid "Deleted from %1"
+msgstr "Verwijderd uit %1"
+
+msgid "Conflict: both versions kept"
+msgstr "Conflict: beide versies bewaard"
+
+msgid "Help & Settings"
+msgstr "Help en instellingen"
+
+msgid "Add a Library…"
+msgstr "Bibliotheek toevoegen…"
+
+msgid "Sync Now"
+msgstr "Nu synchroniseren"
+
+msgid "%1 of %2 files in %3 are gone from this computer. Nothing has been deleted online yet."
+msgstr "%1 van %2 bestanden in %3 zijn van deze computer verdwenen. Er is online nog niets verwijderd."
+
+msgid "Restore Files"
+msgstr "Bestanden terugzetten"
+
+msgid "Delete Online Too"
+msgstr "Ook online verwijderen"
+
+msgid "Sign in to start syncing"
+msgstr "Meld je aan om te beginnen met synchroniseren"
+
+msgid "You're up to date"
+msgstr "Alles is bijgewerkt"
+
+msgid "Recently synced files appear here."
+msgstr "Recent gesynchroniseerde bestanden verschijnen hier."
+
+msgid "Sign In"
+msgstr "Aanmelden"
+
+msgid "Set Up"
+msgstr "Instellen"
+
+msgid "More Actions"
+msgstr "Meer acties"
+
+msgid "Open"
+msgstr "Openen"
+
+msgid "Show in Folder"
+msgstr "In map tonen"
+
+msgid "Share…"
+msgstr "Delen…"
+
+msgid "Copy Link"
+msgstr "Link kopiëren"
+
+msgid "Version History…"
+msgstr "Versiegeschiedenis…"
+
+msgid "Hide Issues"
+msgstr "Problemen verbergen"
+
+msgid "View Issues"
+msgstr "Problemen bekijken"
+
+msgid "%2 of 1 file"
+msgid_plural "%2 of %1 files"
+msgstr[0] "%2 van 1 bestand"
+msgstr[1] "%2 van %1 bestanden"
+
+msgid "%1 of %2"
+msgstr "%1 van %2"
+
+msgid "%1 of %2 used"
+msgstr "%1 van %2 gebruikt"

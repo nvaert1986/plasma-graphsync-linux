@@ -1,0 +1,30 @@
+# SPDX-FileCopyrightText: 2026 plasma-graphsync-linux contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Licence information for files that cannot carry a header (JSON) or should not (desktop
+# entries, Debian packaging, documentation). See https://reuse.software
+
+version = 1
+
+[[annotations]]
+path = [
+    "**/*.json",
+    "**/*.md",
+    ".gitignore",
+    "data/*.in",
+    "data/*.notifyrc",
+    "icons/*.svg",
+    "screenshots/*.png",
+    "packaging/debian/**",
+    "packaging/gentoo/**/metadata.xml",
+]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 plasma-graphsync-linux contributors"
+SPDX-License-Identifier = "GPL-3.0-or-later"
+
+# Gentoo convention: ebuilds are GPL-2 and copyright "Gentoo Authors"
+[[annotations]]
+path = "packaging/gentoo/**/*.ebuild"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 Gentoo Authors"
+SPDX-License-Identifier = "GPL-2.0-only"

@@ -1,0 +1,17 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: plasma-graphsync-linux
+Source: https://github.com/nvaert1986/plasma-graphsync-linux
+
+Files: *
+Copyright: 2026 plasma-graphsync-linux contributors
+License: GPL-3.0-or-later
+
+Files: data/*.metainfo.xml
+Copyright: 2026 plasma-graphsync-linux contributors
+License: CC0-1.0
+
+License: GPL-3.0-or-later
+ On Debian systems the full text is in /usr/share/common-licenses/GPL-3.
+
+License: CC0-1.0
+ On Debian systems the full text is in /usr/share/common-licenses/CC0-1.0.

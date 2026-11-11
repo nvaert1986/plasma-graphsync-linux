@@ -1,0 +1,41 @@
+# SPDX-FileCopyrightText: 2026 plasma-graphsync-linux contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Maintainer: nvaert1986 <25772781+nvaert1986@users.noreply.github.com>
+
+pkgname=plasma-graphsync-linux
+pkgver=0.7.2
+pkgrel=1
+pkgdesc='Sync OneDrive for Business and SharePoint libraries on KDE Plasma'
+arch=(x86_64)
+url='https://github.com/nvaert1986/plasma-graphsync-linux'
+license=(GPL-3.0-or-later)
+# xdg-utils: xdg-open is started at run time, so namcap does not see it
+depends=(glibc libstdc++ hicolor-icon-theme
+         qt6-base qt6-declarative qt6-networkauth qt6-websockets qtkeychain-qt6
+         kbookmarks kcmutils kconfig kcoreaddons kdbusaddons kguiaddons ki18n kio kirigami
+         knotifications kwindowsystem libplasma
+         plasma-workspace xdg-utils)
+makedepends=(cmake extra-cmake-modules)
+options=(!debug)
+# Called plasma-onedrive-linux before 0.7.0; this package takes its place
+conflicts=(plasma-onedrive-linux)
+replaces=(plasma-onedrive-linux)
+source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz")
+sha256sums=('SKIP')  # set from the tag tarball at release
+
+# Optional: ship an organisation's app registration in /etc/xdg/graphsyncrc
+: "${GRAPHSYNC_CLIENT_ID:=}" "${GRAPHSYNC_TENANT_ID:=}"
+
+build() {
+  cmake -B build -S "$pkgname-$pkgver" \
+    -DCMAKE_INSTALL_PREFIX=/usr \
+    -DCMAKE_BUILD_TYPE=None \
+    -DBUILD_TESTING=OFF \
+    -DGRAPHSYNC_CLIENT_ID="$GRAPHSYNC_CLIENT_ID" \
+    -DGRAPHSYNC_TENANT_ID="$GRAPHSYNC_TENANT_ID"
+  cmake --build build
+}
+
+package() {
+  DESTDIR="$pkgdir" cmake --install build
+}
