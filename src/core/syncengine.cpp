@@ -2138,6 +2138,9 @@ bool SyncEngine::localPhase(QString *error)
 
     // Files On-Demand: <rel>.cloud stands for an online-only file and is never uploaded. A
     // placeholder renamed or moved here (same inode) renames or moves the file online.
+    // The placeholders are looked up in the full scan: *.cloud names are left alone, so the
+    // filtered scan no longer has them, and without its placeholder an online-only file would
+    // look deleted here and be deleted online.
     QSet<QString> placeholderPresent;
     QHash<quint64, QString> dehydratedByInode;
     for (auto it = m_items.begin(); it != m_items.end(); ++it) {
@@ -2148,28 +2151,26 @@ bool SyncEngine::localPhase(QString *error)
         if (!rel) {
             continue;
         }
-        const auto here = scan.constFind(*rel + Placeholder::suffix);
-        if (here != scan.constEnd()) {
+        if (fullScan.contains(*rel + Placeholder::suffix)) {
             placeholderPresent.insert(*rel);
-            scan.erase(here);
         } else if (it->localInode) {
             dehydratedByInode.insert(it->localInode, it.key());
         }
     }
-    const QStringList scannedNames = scan.keys();
-    for (const QString &key : scannedNames) {
-        if (!Placeholder::hasSuffix(key) || !Placeholder::isPlaceholder(absPath(key))) {
+    for (auto it = fullScan.constBegin(); it != fullScan.constEnd(); ++it) {
+        const QString &key = it.key();
+        if (!Placeholder::hasSuffix(key) || placeholderPresent.contains(Placeholder::realPathOf(key)) || isExcluded(key) || isUnderShortcut(key)
+            || !Placeholder::isPlaceholder(absPath(key))) {
             continue;
         }
         const QString realRel = Placeholder::realPathOf(key);
-        const QString movedId = dehydratedByInode.value(scan.value(key).inode);
+        const QString movedId = dehydratedByInode.value(it->inode);
         if (!movedId.isEmpty() && moveRemote(movedId, realRel)) {
-            dehydratedByInode.remove(scan.value(key).inode);
+            dehydratedByInode.remove(it->inode);
             placeholderPresent.insert(realRel);
             rebuildPathIndex();
         }
-        // A copy of a placeholder is not a file
-        scan.remove(key);
+        // A copy of a placeholder is not a file; *.cloud names never reach the upload below
     }
 
     QHash<quint64, QString> inodeToId;

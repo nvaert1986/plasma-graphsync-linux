@@ -1,3 +1,10 @@
+plasma-graphsync-linux (0.8.5-1) unstable; urgency=high
+
+  * Files On-Demand: files that became online-only were deleted online
+    (to the recycle bin). More in CHANGELOG.md.
+
+ -- nvaert1986 <25772781+nvaert1986@users.noreply.github.com>  Thu, 12 Nov 2026 10:22:48 +0100
+
 plasma-graphsync-linux (0.8.4-1) unstable; urgency=medium
 
   * Fixes from a third code review: no freezes or hangs while a sign-in

@@ -3,6 +3,15 @@
 All notable changes to Graph Sync (plasma-graphsync-linux). Versions follow the last finished
 development phase; the third number counts fixes.
 
+## 0.8.5 (2026-11-12)
+
+**Fixed**
+- Files On-Demand: a file that became online-only (Free Up Space, or a new file from online
+  while Files On-Demand is on) was deleted online right away (to the recycle bin), because the
+  check for local deletes no longer saw its placeholder. Present since 0.7.1; Files On-Demand is
+  off by default. Files deleted this way can be restored from the site's or OneDrive's recycle
+  bin.
+
 ## 0.8.4 (2026-11-12)
 
 **Fixed**

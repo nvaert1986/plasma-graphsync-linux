@@ -6,7 +6,7 @@
 # --define "graphsync_client_id <id>" --define "graphsync_tenant_id <id>".
 
 Name:           plasma-graphsync-linux
-Version:        0.8.4
+Version:        0.8.5
 Release:        1%{?dist}
 Summary:        Sync OneDrive for Business and SharePoint libraries on KDE Plasma
 License:        GPL-3.0-or-later AND LGPL-3.0-or-later
@@ -105,6 +105,10 @@ the Sync button in SharePoint. Not affiliated with Microsoft.
 %endif
 
 %changelog
+* Thu Nov 12 2026 nvaert1986 <25772781+nvaert1986@users.noreply.github.com> - 0.8.5-1
+- Files On-Demand: files that became online-only were deleted online;
+  see CHANGELOG.md.
+
 * Thu Nov 12 2026 nvaert1986 <25772781+nvaert1986@users.noreply.github.com> - 0.8.4-1
 - Fixes from a third code review: no freezes during a sign-in, KWallet
   from one thread, per-account restarts; see CHANGELOG.md.

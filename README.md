@@ -6,7 +6,7 @@
 A native KDE Plasma 6 sync client for OneDrive for Business and SharePoint document
 libraries, written in C++ with Qt 6 and KDE Frameworks 6.
 
-**Status:** version 0.8.4, phases 0 to 8 done (the version number follows the last finished
+**Status:** version 0.8.5, phases 0 to 8 done (the version number follows the last finished
 phase).
 
 > **Experimental: use at your own risk.** This is young software that uploads, changes and

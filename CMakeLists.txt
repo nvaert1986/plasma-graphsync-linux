@@ -3,7 +3,7 @@
 
 cmake_minimum_required(VERSION 3.25)
 
-project(plasma-graphsync-linux VERSION 0.8.4 LANGUAGES CXX)
+project(plasma-graphsync-linux VERSION 0.8.5 LANGUAGES CXX)
 
 # Qt 6.9 and KDE Frameworks 6.20 are the main target. Older systems such as Debian 13 (Qt 6.8,
 # Frameworks 6.13, Plasma 6.3) build too, but sign in with a code only (Auth::browserLoginAvailable)
