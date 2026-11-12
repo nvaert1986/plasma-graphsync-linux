@@ -21,7 +21,7 @@ options=(!debug)
 conflicts=(plasma-onedrive-linux)
 replaces=(plasma-onedrive-linux)
 source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz")
-sha256sums=('SKIP')  # set from the tag tarball at release
+sha256sums=('bc30f28d1befa72ee1f021099bd66298e053fb14ee439127cfb8b5517cde1e61')
 
 # Optional: ship an organisation's app registration in /etc/xdg/graphsyncrc
 : "${GRAPHSYNC_CLIENT_ID:=}" "${GRAPHSYNC_TENANT_ID:=}"
