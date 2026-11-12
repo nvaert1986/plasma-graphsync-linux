@@ -1,0 +1,126 @@
+.\" SPDX-FileCopyrightText: 2026 plasma-graphsync-linux contributors
+.\" SPDX-License-Identifier: GPL-3.0-or-later
+.TH GRAPHSYNCCTL 1 "November 2026" "plasma-graphsync-linux @PROJECT_VERSION@" "User Commands"
+.SH NAME
+graphsyncctl \- command-line tool of Graph Sync, the OneDrive and SharePoint sync client for KDE Plasma
+.SH SYNOPSIS
+.B graphsyncctl
+.I command
+.RI [ arguments ]
+.RI [ options ]
+.SH DESCRIPTION
+.B graphsyncctl
+sets up accounts and sync locations, talks to the running sync service
+.BR graphsyncd (1)
+and works on single synced files.
+Most users use the app
+.BR plasma-graphsync-linux (1)
+instead; this tool is for terminals, scripts and support.
+.PP
+A location syncs with its own account. The
+.I current account
+is the one new locations and the app use; files are always handled with the account of the
+location they are in.
+.SH ACCOUNTS
+.TP
+.B configure \-\-client\-id \fIID\fP \-\-tenant\-id \fITENANT\fP
+Store the app registration for signing in: its client ID, and a tenant ID, domain or work e-mail
+address.
+.TP
+.BR login " [" device ]
+Sign in the current account (or the configured registration) in the browser, or with a code
+entered at Microsoft's device login page.
+.TP
+.B logout
+Sign out the current account; its locations stop syncing, the local files stay.
+.TP
+.B whoami
+Show the current account and its OneDrive storage.
+.TP
+.B accounts
+List the accounts on this computer and their locations; the current one is marked with *.
+.TP
+.BR add\-account " \fIEMAIL\fP [" device "] [\-\-client\-id \fIID\fP]"
+Sign in another account, of another organisation or another user; it becomes the current
+account. Without \-\-client\-id the suite's app registration is used.
+.TP
+.B use\-account \fIACCOUNT\fP
+Make an account the current one.
+.TP
+.BR approval\-link " \fIEMAIL\fP|\fIDOMAIN\fP [\-\-client\-id \fIID\fP]"
+Print the page where an administrator of that organisation approves the app registration once.
+.SH LOCATIONS
+.TP
+.B add\-personal \fR[\fP\-\-local \fIPATH\fP\fR]\fP
+Sync the current account's own OneDrive.
+.TP
+.B drives \-\-site\-url \fIURL\fP
+List the document libraries of a SharePoint site.
+.TP
+.B add\-root \-\-name \fIN\fP \-\-local \fIPATH\fP \-\-drive \fIID\fP \fR[\fP\-\-remote\-root \fIITEM\fP\fR]\fP
+Add a library (or one folder of it) as a location of the current account.
+.TP
+.B roots
+List the locations.
+.TP
+.B remove\-root \fIROOT\fP
+Stop syncing a location; the local files stay.
+.TP
+.B sync \fIROOT\fP \fR[\fP\-\-download\-only\fR]\fP
+Run one sync cycle of a location in this process, with that location's account.
+.SH RUNNING SERVICE
+.TP
+.BR status " | " activity
+Show the state of the sync service and the recent activity (JSON).
+.TP
+.BR sync\-now " | " pause " [\fIMINUTES\fP] | " resume
+Sync at once, pause (for some minutes, or until resumed) or resume.
+.TP
+.B migrate
+Take over an install of plasma-onedrive-linux, the name before 0.7.0 (run once at login).
+.SH FILES IN SYNCED FOLDERS
+These use the account of the location the file is in, and fail when that account is no longer on
+this computer.
+.TP
+.B item \fIPATH\fP
+Show the online item (ids, web address, account).
+.TP
+.B link \fIPATH\fP \fR[\fPview|edit\fR] [\fPanonymous|organization|users\fR]\fP
+Create a sharing link; without a scope the organisation's default link.
+.TP
+.BR permissions " \fIPATH\fP | " unshare " \fIPATH\fP \fIPERMISSION\fP"
+List who has access, or remove a link.
+.TP
+.B invite \fIPATH\fP \fIEMAIL\fP \fR[\fPread|write\fR]\fP
+Give someone access (no invitation e-mail is sent).
+.TP
+.B people \fITEXT\fP
+Name suggestions from the current account's organisation.
+.TP
+.BR versions " \fIPATH\fP | " get\-version " \fIPATH\fP \fIVERSION\fP \fITARGET\fP | " restore\-version " \fIPATH\fP \fIVERSION\fP"
+List the versions of a file, save one, or make one current again.
+.TP
+.B download \fIPATH\fP \fITARGET\fP
+Save the current online content of a synced file.
+.TP
+.B add\-shortcut \fIFOLDER\fP
+Add a synced folder to "My files" ("Add shortcut to My files").
+.SH FILES
+.TP
+.I ~/.config/graphsyncrc
+Settings and locations.
+.TP
+.I ~/.config/graphaccountsrc
+Accounts, shared with the other apps of the suite.
+.TP
+.I ~/.local/state/graphsync/
+Sync state per location.
+.PP
+Sign-ins are kept in KWallet (service "plasma-graphsync-linux").
+.SH EXIT STATUS
+0 on success, 1 on an error (printed on standard error).
+.SH SEE ALSO
+.BR plasma\-graphsync\-linux (1),
+.BR graphsyncd (1)
+.PP
+https://github.com/nvaert1986/plasma-graphsync-linux

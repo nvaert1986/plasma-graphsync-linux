@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include "accounts.h"
+
 #include <QList>
 #include <QString>
 #include <QStringList>
@@ -31,22 +33,22 @@ struct RootConfig {
     QString webUrl;
     // Folders (relative paths) the user chose not to sync
     QStringList excludedPaths;
+    // The account (GraphCore::Account id in graphaccountsrc) this location syncs with; empty for
+    // a location set up while signed out, until an account signs in and claims it
+    QString accountId;
 };
 
+// The app registration and tenant a sign-in uses. objectId is the signed-in user (empty before
+// the first sign-in); with it the KWallet entry is per user, so accounts of one tenant and one
+// registration keep apart.
 struct AuthConfig {
     QString clientId;
     QString tenantId;
+    QString objectId;
 };
 
-// Signed-in account details, kept so odopen links can be matched to the account.
-struct AccountInfo {
-    QString objectId;
-    QString userPrincipalName;
-    QString displayName;
-    QString tenantId;
-    // Tenant display name, used for "OneDrive - <Organisation>" and the folder layout
-    QString organization;
-};
+// A signed-in account (shared with the other apps of the suite through graphaccountsrc)
+using AccountInfo = GraphCore::Account;
 
 struct GeneralConfig {
     // Libraries go to <baseFolder>/SharePoint - <Organisation>/<Site> - <Library>
@@ -68,11 +70,37 @@ struct GeneralConfig {
 
 namespace Config
 {
+// What the setup wizard or `graphsyncctl configure` chose for signing in a new account: the app
+// registration and the tenant ([Auth] in graphsyncrc, which a package or IT may also ship in
+// /etc/xdg/graphsyncrc)
 AuthConfig auth();
 void setAuth(const AuthConfig &auth);
 
+// The account the app works with (signing in, adding libraries, the Sync button). Every location
+// syncs with its own account; until the Accounts page this is the one signed in last. Empty
+// account (no id) when signed out.
 AccountInfo account();
-void setAccount(const AccountInfo &account);
+void setCurrentAccountId(const QString &id);
+// Stores a signed-in account in graphaccountsrc (a known user keeps its id and organisation),
+// makes it the current one and hands it the locations that have no account yet
+// legacyOwner: the account is the one of the 0.7 setup itself (the migration), which claims all of
+// its locations; a sign-in only claims them for the same tenant
+AccountInfo registerAccount(const AccountInfo &signedIn, bool legacyOwner = false);
+// Organisation name from Graph, kept with the account
+void setAccountOrganization(const QString &id, const QString &organization);
+// The sign-in settings of an account: its app registration, tenant and user
+AuthConfig authFor(const AccountInfo &account);
+// The current account's sign-in settings, or auth() for a new sign-in when there is none
+AuthConfig currentAuth();
+// The user (object id) whose sign-in 0.7.x stored under the registration's KWallet key (without
+// the user); only that account may move it to its own entry. Empty once moved.
+// "tenant:user" of an account, kept with each location (AccountUser)
+QString accountUserKey(const AccountInfo &account);
+QString legacyTokenUser();
+// The exact KWallet key 0.7.x used (its [Auth] values as written, any spelling)
+QString legacyTokenKey();
+// Empty objectId: the old sign-in was moved or removed
+void setLegacyTokenUser(const QString &objectId, const QString &key = {});
 
 GeneralConfig general();
 void setGeneral(const GeneralConfig &general);
@@ -89,6 +117,11 @@ enum class RootPathProblem {
     Overlaps,
 };
 RootPathProblem rootPathProblem(const QString &path);
+// The location holding path (the longest match; a Files On-Demand placeholder stands for its real
+// file); id empty when none
+RootConfig rootForPath(const QString &path);
+// The location with this id; id empty when there is none
+RootConfig root(const QString &id);
 bool removeRoot(const QString &id);
 void setExcludedPaths(const QString &id, const QStringList &paths);
 void setFilesOnDemand(const QString &id, bool on);
@@ -99,6 +132,14 @@ QString stateDirectory();
 // The folder that holds all SharePoint libraries: <base>/SharePoint - <Organisation>/<Site> - <Library>,
 // next to <base>/OneDrive - <Organisation>. Not translated: the daemon recognises the folder by it.
 QString sharePointFolderName(const QString &organization);
+// The account a SharePoint Sync button link is for: the user it names (object id, else address),
+// else an account that already syncs from that SharePoint organisation (host), else the current
+// account
+AccountInfo accountForLink(const QString &userId, const QString &userEmail, const QString &host);
+
+// The organisation as folder names show it: its name, with the account's address added when
+// another account of the same organisation syncs here already (two users of one tenant)
+QString organizationLabel(const AccountInfo &account);
 }
 
 }

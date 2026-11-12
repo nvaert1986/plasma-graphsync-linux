@@ -23,12 +23,13 @@ constexpr int localDebounceMs = 3000;
 constexpr int pushDebounceMs = 1000;
 }
 
-RootController::RootController(const RootConfig &root, Auth *auth, QObject *parent)
+RootController::RootController(const RootConfig &root, std::shared_ptr<Auth> auth, QObject *parent)
     : QObject(parent)
     , m_root(root)
 {
     m_thread.setObjectName(QStringLiteral("sync-") + root.id);
-    m_engine = new SyncEngine(root, auth);
+    m_auth = std::move(auth);
+    m_engine = new SyncEngine(root, m_auth.get());
     m_engine->moveToThread(&m_thread);
     connect(&m_thread, &QThread::finished, m_engine, &QObject::deleteLater);
     connect(m_engine, &SyncEngine::statusChanged, this, [this](const QVariantMap &status) {
@@ -46,6 +47,8 @@ RootController::RootController(const RootConfig &root, Auth *auth, QObject *pare
                 Q_EMIT errorOccurred(errors.constFirst());
             }
         }
+        // A new location's folder is made by its first sync: watch it from then on
+        startWatcher();
         const int interval = status.value(QStringLiteral("state")) == QLatin1String("offline") ? offlineRetryMs : pollIntervalMs;
         if (m_poll.interval() != interval) {
             m_poll.start(interval);
@@ -73,18 +76,7 @@ RootController::RootController(const RootConfig &root, Auth *auth, QObject *pare
     });
     m_poll.start();
 
-    if (QDir(root.localPath).exists()) {
-        m_watcher = new LocalWatcher(root.localPath, this);
-        connect(m_watcher, &LocalWatcher::changed, this, [this] {
-            scheduleSync(localDebounceMs);
-        });
-        connect(m_watcher, &LocalWatcher::rootLost, this, [this] {
-            // Never let a vanished folder turn into "delete everything online"
-            m_haltReason = QStringLiteral("the local folder was removed or moved; syncing stopped");
-            m_engine->setPaused(true);
-            Q_EMIT statusChanged();
-        });
-    }
+    startWatcher();
 
     m_push = new PushClient(this);
     connect(m_engine, &SyncEngine::pushEndpointChanged, m_push, &PushClient::setEndpoint);
@@ -122,6 +114,23 @@ QString RootController::localPath() const
 std::shared_ptr<const SyncEngine::StatusSnapshot> RootController::snapshot() const
 {
     return m_engine->statusSnapshot();
+}
+
+void RootController::startWatcher()
+{
+    if (m_watcher || !QDir(m_root.localPath).exists()) {
+        return;
+    }
+    m_watcher = new LocalWatcher(m_root.localPath, this);
+    connect(m_watcher, &LocalWatcher::changed, this, [this] {
+        scheduleSync(localDebounceMs);
+    });
+    connect(m_watcher, &LocalWatcher::rootLost, this, [this] {
+        // Never let a vanished folder turn into "delete everything online"
+        m_haltReason = QStringLiteral("the local folder was removed or moved; syncing stopped");
+        m_engine->setPaused(true);
+        Q_EMIT statusChanged();
+    });
 }
 
 void RootController::scheduleSync(int delayMs)

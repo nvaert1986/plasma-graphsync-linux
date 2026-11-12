@@ -52,6 +52,9 @@ Kirigami.ApplicationWindow {
         case "signIn":
             pageStack.push(signInComponent);
             break;
+        case "addAccount":
+            pageStack.push(addAccountComponent, { initialEmail: argument ?? "" });
+            break;
         case "add":
             pageStack.push(addComponent);
             break;
@@ -100,6 +103,10 @@ Kirigami.ApplicationWindow {
     Component {
         id: signInComponent
         SignInPage {}
+    }
+    Component {
+        id: addAccountComponent
+        AddAccountPage {}
     }
     Component {
         id: shareComponent

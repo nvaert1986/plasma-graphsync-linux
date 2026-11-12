@@ -40,6 +40,9 @@ int main(int argc, char **argv)
     std::unique_ptr<QCoreApplication> app;
     if (haveDisplay) {
         QGuiApplication::setQuitOnLastWindowClosed(false);
+        // Qt registers the process with the desktop portal at start, by its desktop file: the app's
+        // (without it: "Failed to register with host portal ... App info not found")
+        QGuiApplication::setDesktopFileName(QStringLiteral("io.github.nvaert1986.graphsync"));
         app = std::make_unique<QGuiApplication>(argc, argv);
     } else {
         app = std::make_unique<QCoreApplication>(argc, argv);
@@ -47,6 +50,8 @@ int main(int argc, char **argv)
     QCoreApplication::setApplicationName(QStringLiteral("plasma-graphsync-linux"));
     QCoreApplication::setApplicationVersion(QStringLiteral(GRAPHSYNC_VERSION));
     KLocalizedString::setApplicationDomain("plasma-graphsync-linux");
+    // Accounts are shared by the suite; the app registration per account is this app's own
+    GraphCore::Accounts::setApplication(QStringLiteral("plasma-graphsync-linux"));
 
     // SIGTERM/SIGINT: quit the event loop so every root finishes its cycle and saves state
     if (::socketpair(AF_UNIX, SOCK_STREAM, 0, signalPipe) == 0) {
@@ -78,6 +83,7 @@ int main(int argc, char **argv)
     case Migration::Result::Imported:
         break;
     }
+    Migration::adoptSharedAccounts();
 
     QDBusConnection bus = QDBusConnection::sessionBus();
     if (!bus.registerService(QStringLiteral("io.github.nvaert1986.GraphSync"))) {

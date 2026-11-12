@@ -3,7 +3,7 @@
 # Maintainer: nvaert1986 <25772781+nvaert1986@users.noreply.github.com>
 
 pkgname=plasma-graphsync-linux
-pkgver=0.7.2
+pkgver=0.8.4
 pkgrel=1
 pkgdesc='Sync OneDrive for Business and SharePoint libraries on KDE Plasma'
 arch=(x86_64)
@@ -21,7 +21,7 @@ options=(!debug)
 conflicts=(plasma-onedrive-linux)
 replaces=(plasma-onedrive-linux)
 source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz")
-sha256sums=('489dee6bdbb11cd38ca470eba738742305687c43aaf771fb44e701694d0c42a0')
+sha256sums=('SKIP')  # set from the tag tarball at release
 
 # Optional: ship an organisation's app registration in /etc/xdg/graphsyncrc
 : "${GRAPHSYNC_CLIENT_ID:=}" "${GRAPHSYNC_TENANT_ID:=}"

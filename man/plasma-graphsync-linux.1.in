@@ -1,0 +1,52 @@
+.\" SPDX-FileCopyrightText: 2026 plasma-graphsync-linux contributors
+.\" SPDX-License-Identifier: GPL-3.0-or-later
+.TH PLASMA-GRAPHSYNC-LINUX 1 "November 2026" "plasma-graphsync-linux @PROJECT_VERSION@" "User Commands"
+.SH NAME
+plasma-graphsync-linux \- Graph Sync, a sync client for Microsoft OneDrive and SharePoint on KDE Plasma
+.SH SYNOPSIS
+.B plasma-graphsync-linux
+.RI [ options ]
+.RI [ url ]
+.SH DESCRIPTION
+The Graph Sync app: the setup wizard, the settings (locations, accounts, notifications,
+advanced), and the windows for Share, Version History and the SharePoint Sync button. Without
+options it opens the settings, or the setup wizard on the first start. The syncing itself is done
+by
+.BR graphsyncd (1).
+.SH OPTIONS
+.TP
+.B \-\-setup
+Run the setup wizard.
+.TP
+.B \-\-add
+Add a library of the current account.
+.TP
+.B \-\-add\-personal
+Sync the current account's own OneDrive.
+.TP
+.B \-\-add\-account
+Sign in to another account.
+.TP
+.B \-\-sign\-in
+Sign the current account in again.
+.TP
+.B \-\-choose\-folders \fIROOT\fP
+Choose which folders of a location are synced.
+.TP
+.BR \-\-share " \fIPATH\fP, " \-\-copy\-link " \fIPATH\fP, " \-\-versions " \fIPATH\fP, " \-\-view\-online " \fIPATH\fP"
+Share a synced file or folder, copy a link to it, show its version history, or open it online.
+.TP
+.B \-\-download
+Download the given online-only files (name.cloud) without opening them.
+.TP
+.B \-h, \-\-help
+Show all options, including those for testing.
+.SH ARGUMENTS
+.TP
+.I url
+An odopen:// link from the SharePoint Sync button, a .url shortcut or an online-only .cloud file.
+.SH SEE ALSO
+.BR graphsyncctl (1),
+.BR graphsyncd (1)
+.PP
+https://github.com/nvaert1986/plasma-graphsync-linux

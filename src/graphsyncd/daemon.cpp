@@ -61,31 +61,163 @@ Daemon::Daemon(QObject *parent)
 
 Daemon::~Daemon()
 {
+    dropAccounts();
+}
+
+std::shared_ptr<Auth> Daemon::authFor(const QString &accountId)
+{
+    if (std::shared_ptr<Auth> auth = m_auths.value(accountId)) {
+        return auth;
+    }
+    const AccountInfo account = GraphCore::Accounts::find(accountId);
+    if (!account.isValid()) {
+        return {};
+    }
+    auto auth = std::make_shared<Auth>(Config::authFor(account));
+    m_auths.insert(accountId, auth);
+    return auth;
+}
+
+void Daemon::dropAccounts()
+{
     stopRoots();
+    m_auths.clear();
 }
 
 void Daemon::reloadAccount()
 {
-    stopRoots();
-    m_auth = std::make_unique<Auth>(Config::auth());
-    m_signedIn = m_auth->isConfigured() && m_auth->hasStoredRefreshToken();
-    m_signedOutNotified = false;
-    if (m_signedIn) {
-        startRoots();
-    } else {
+    if (m_reloading) {
+        m_reloadPending = true;
+        return;
+    }
+    m_reloading = true;
+    do {
+        m_reloadPending = false;
+        reloadOnce();
+    } while (m_reloadPending);
+    m_reloading = false;
+}
+
+void Daemon::reloadOnce()
+{
+    // Sign-ins, accounts and their roots may all have changed (app, graphsyncctl, another app of
+    // the suite): start over
+    dropAccounts();
+    invalidateStatusCache();
+    // Collected first and swapped in at the end: a status asked for meanwhile (the KWallet reads
+    // run local event loops) keeps showing the accounts as they were, not all signed out
+    QHash<QString, bool> signedIn;
+    const QList<AccountInfo> accounts = GraphCore::Accounts::all();
+    for (const AccountInfo &account : accounts) {
+        const std::shared_ptr<Auth> auth = authFor(account.id);
+        signedIn.insert(account.id, auth && auth->isConfigured() && auth->hasStoredRefreshToken());
+    }
+    m_accountSignedIn = signedIn;
+    // No current account (signed out with graphsyncctl) or a signed-out one: another signed-in
+    // account takes over
+    chooseCurrentAccount();
+    m_signedOutNotified.clear();
+    if (!m_signedIn) {
         qCInfo(GRAPHSYNC) << "Not signed in; waiting for the setup wizard";
     }
+    startRoots();
     Q_EMIT statusChanged();
 }
 
-void Daemon::signOut()
+void Daemon::reloadOneAccount(const QString &accountId)
 {
-    stopRoots();
-    if (m_auth) {
-        m_auth->logout();
+    if (m_reloading) {
+        // A full reload is running: it covers this account too
+        m_reloadPending = true;
+        return;
+    }
+    m_reloading = true;
+    // Only this account's locations restart (a new sign-in): the other accounts' transfers go on
+    const QStringList rootIds = m_rootAccounts.keys(accountId);
+    for (const QString &rootId : rootIds) {
+        delete m_roots.take(rootId);
+        m_rootAccounts.remove(rootId);
+    }
+    m_auths.remove(accountId);
+    invalidateStatusCache();
+    const std::shared_ptr<Auth> auth = authFor(accountId);
+    m_accountSignedIn.insert(accountId, auth && auth->isConfigured() && auth->hasStoredRefreshToken());
+    m_signedOutNotified.remove(accountId);
+    chooseCurrentAccount();
+    startRoots();
+    m_reloading = false;
+    Q_EMIT rootsChanged();
+    Q_EMIT statusChanged();
+    if (m_reloadPending) {
+        reloadAccount();
+    }
+}
+
+void Daemon::signOut(const QString &given)
+{
+    const QString accountId = given.isEmpty() ? Config::account().id : given;
+    const QStringList rootIds = m_rootAccounts.keys(accountId);
+    for (const QString &rootId : rootIds) {
+        delete m_roots.take(rootId);
+        m_rootAccounts.remove(rootId);
+    }
+    // Also an account not loaded yet (signed in since the last reload): its token must go too
+    if (const std::shared_ptr<Auth> auth = authFor(accountId)) {
+        // Also clears the current account when it was this one
+        auth->logout();
+    }
+    m_auths.remove(accountId);
+    invalidateStatusCache();
+    m_accountSignedIn.insert(accountId, false);
+    chooseCurrentAccount();
+    Q_EMIT rootsChanged();
+    Q_EMIT statusChanged();
+}
+
+void Daemon::removeAccount(const QString &accountId)
+{
+    if (accountId.isEmpty()) {
+        return;
+    }
+    signOut(accountId);
+    // Its locations go (shortcuts with their root); the local copies stay as ordinary files
+    const QList<RootConfig> roots = Config::roots();
+    for (const RootConfig &root : roots) {
+        if (root.accountId == accountId && root.kind != QLatin1String("shortcut")) {
+            removeRoot(root.id);
+        }
+    }
+    qCInfo(GRAPHSYNC).noquote() << "Removed account" << accountId << "from this computer";
+    Q_EMIT statusChanged();
+}
+
+bool Daemon::setCurrentAccount(const QString &accountId)
+{
+    if (!GraphCore::Accounts::find(accountId).isValid()) {
+        return false;
+    }
+    invalidateStatusCache();
+    Config::setCurrentAccountId(accountId);
+    m_signedIn = m_accountSignedIn.value(accountId);
+    Q_EMIT statusChanged();
+    return true;
+}
+
+void Daemon::chooseCurrentAccount()
+{
+    const QString current = Config::account().id;
+    if (!current.isEmpty() && m_accountSignedIn.value(current)) {
+        m_signedIn = true;
+        return;
+    }
+    for (auto it = m_accountSignedIn.constBegin(); it != m_accountSignedIn.constEnd(); ++it) {
+        if (it.value()) {
+            Config::setCurrentAccountId(it.key());
+            m_signedIn = true;
+            return;
+        }
     }
     m_signedIn = false;
-    Q_EMIT statusChanged();
 }
 
 void Daemon::startRoots()
@@ -95,15 +227,26 @@ void Daemon::startRoots()
     for (const RootConfig &root : roots) {
         ids.insert(root.id);
     }
+    QSet<QString> signedOut;
     for (const RootConfig &root : roots) {
         if (root.kind == QLatin1String("shortcut") && !ids.contains(root.parentRootId)) {
             // Its root was removed while we were not running
             Config::removeRoot(root.id);
             continue;
         }
-        if (root.enabled && !m_roots.contains(root.id)) {
-            createController(root);
+        if (!root.enabled || m_roots.contains(root.id)) {
+            continue;
         }
+        // Set up while signed out: the next account that signs in claims it
+        const std::shared_ptr<Auth> auth = root.accountId.isEmpty() ? nullptr : authFor(root.accountId);
+        if (!auth || !auth->hasStoredRefreshToken()) {
+            signedOut.insert(root.accountId);
+            continue;
+        }
+        createController(root, auth);
+    }
+    for (const QString &accountId : std::as_const(signedOut)) {
+        qCInfo(GRAPHSYNC).noquote() << "Locations of account" << (accountId.isEmpty() ? QStringLiteral("(none)") : accountId) << "wait for a sign-in";
     }
     applyPause();
 }
@@ -112,6 +255,7 @@ void Daemon::stopRoots()
 {
     qDeleteAll(m_roots);
     m_roots.clear();
+    m_rootAccounts.clear();
     Q_EMIT rootsChanged();
 }
 
@@ -129,9 +273,12 @@ Place placeFor(const RootConfig &root)
 {
     if (root.kind != QLatin1String("personal")) {
         const QString parent = QFileInfo(root.localPath).absolutePath();
-        const AccountInfo account = Config::account();
-        const QString folderName = Config::sharePointFolderName(account.organization);
-        if (!account.organization.isEmpty() && QFileInfo(parent).fileName() == folderName) {
+        const AccountInfo account = GraphCore::Accounts::find(root.accountId);
+        // "SharePoint - <Organisation>", or with the address for a second user of the organisation;
+        // never another organisation whose name starts the same ("Contoso Group" for "Contoso")
+        const QString folderName = QFileInfo(parent).fileName();
+        const QString expected = Config::sharePointFolderName(account.organization);
+        if (!account.organization.isEmpty() && (folderName == expected || folderName.startsWith(expected + QStringLiteral(" (")))) {
             return {parent, folderName, QStringLiteral("folder-network")};
         }
     }
@@ -139,7 +286,7 @@ Place placeFor(const RootConfig &root)
 }
 }
 
-RootController *Daemon::createController(const RootConfig &root)
+RootController *Daemon::createController(const RootConfig &root, std::shared_ptr<Auth> auth)
 {
     // Shortcuts live inside the OneDrive folder, which has its own Places entry
     if (root.kind != QLatin1String("shortcut")) {
@@ -151,8 +298,9 @@ RootController *Daemon::createController(const RootConfig &root)
         Places::ensure(place.path, place.label, place.icon);
     }
     qCInfo(GRAPHSYNC) << "Syncing" << root.name << "->" << root.localPath;
-    auto *controller = new RootController(root, m_auth.get(), this);
+    auto *controller = new RootController(root, std::move(auth), this);
     m_roots.insert(root.id, controller);
+    m_rootAccounts.insert(root.id, root.accountId);
     connect(controller, &RootController::statusChanged, this, &Daemon::statusChanged);
     connect(controller, &RootController::activityEntry, this, &Daemon::activityAdded);
     connect(controller, &RootController::conflictCreated, this, &Daemon::notifyConflict);
@@ -162,7 +310,14 @@ RootController *Daemon::createController(const RootConfig &root)
     connect(controller, &RootController::bigDeletePending, this, [this, id = root.id, name = root.name](int missing, int known) {
         notifyBigDelete(id, name, missing, known);
     });
-    connect(controller, &RootController::signInLost, this, &Daemon::notifySignedOut);
+    connect(controller, &RootController::signInLost, this, [this, accountId = root.accountId] {
+        m_accountSignedIn.insert(accountId, false);
+        if (accountId == Config::account().id) {
+            m_signedIn = false;
+        }
+        notifySignedOut(accountId);
+        Q_EMIT statusChanged();
+    });
     connect(controller, &RootController::hydrated, this, [this, controller](const QString &rel, bool ok, const QString &error) {
         const QString path = controller->localPath() + QLatin1Char('/') + rel;
         m_hydrations.insert(path, ok ? QStringLiteral("done") : QStringLiteral("failed: ") + error);
@@ -187,9 +342,16 @@ QString Daemon::addRoot(const RootConfig &root)
         qCWarning(GRAPHSYNC).noquote() << "Refused a sync location that is not absolute, too broad or overlapping:" << root.localPath;
         return {};
     }
-    const RootConfig stored = Config::addRoot(root);
-    if (m_signedIn) {
-        createController(stored);
+    RootConfig wanted = root;
+    if (wanted.accountId.isEmpty()) {
+        // From the app: the account it works with
+        wanted.accountId = Config::account().id;
+    }
+    invalidateStatusCache();
+    const RootConfig stored = Config::addRoot(wanted);
+    const std::shared_ptr<Auth> auth = stored.accountId.isEmpty() ? nullptr : authFor(stored.accountId);
+    if (auth && auth->hasStoredRefreshToken()) {
+        createController(stored, auth);
         applyPause();
     }
     if (notificationsAvailable()) {
@@ -207,6 +369,7 @@ bool Daemon::removeRoot(const QString &id)
 {
     if (RootController *controller = m_roots.take(id)) {
         delete controller;
+        m_rootAccounts.remove(id);
         Q_EMIT rootsChanged();
     }
     // Its shortcuts stop too; like the root's own files, their local copies are kept
@@ -214,6 +377,7 @@ bool Daemon::removeRoot(const QString &id)
     for (const RootConfig &root : all) {
         if (root.kind == QLatin1String("shortcut") && root.parentRootId == id) {
             delete m_roots.take(root.id);
+            m_rootAccounts.remove(root.id);
             Config::removeRoot(root.id);
         }
     }
@@ -236,6 +400,7 @@ bool Daemon::removeRoot(const QString &id)
         Places::remove(placePath);
     }
 
+    invalidateStatusCache();
     const bool removed = Config::removeRoot(id);
     Q_EMIT statusChanged();
     return removed;
@@ -304,10 +469,31 @@ void Daemon::applyPause()
     Q_EMIT statusChanged();
 }
 
+void Daemon::invalidateStatusCache()
+{
+    m_statusCacheAge.invalidate();
+}
+
+void Daemon::refreshStatusCache() const
+{
+    // Status is asked for after every change of every location (throttled, but continuously during
+    // a big sync); graphsyncrc and graphaccountsrc are reread at most every two seconds, and at once
+    // after this daemon changed them
+    if (m_statusCacheAge.isValid() && !m_statusCacheAge.hasExpired(2000)) {
+        return;
+    }
+    m_cachedCurrent = Config::account();
+    m_cachedRoots = Config::roots();
+    m_cachedAccounts = GraphCore::Accounts::all();
+    m_cachedGeneral = Config::general();
+    m_statusCacheAge.start();
+}
+
 QJsonObject Daemon::status() const
 {
-    const AccountInfo account = Config::account();
-    const GeneralConfig general = Config::general();
+    refreshStatusCache();
+    const AccountInfo account = m_cachedCurrent;
+    const GeneralConfig &general = m_cachedGeneral;
     QJsonArray roots;
     // Personal OneDrive first, then libraries by name, like the OneDrive settings list
     QList<RootController *> ordered = m_roots.values();
@@ -322,7 +508,45 @@ QJsonObject Daemon::status() const
         return sa.value(QStringLiteral("name")).toString().localeAwareCompare(sb.value(QStringLiteral("name")).toString()) < 0;
     });
     for (const RootController *controller : std::as_const(ordered)) {
-        roots.append(QJsonObject::fromVariantMap(controller->status()));
+        QVariantMap root = controller->status();
+        root.insert(QStringLiteral("accountId"), m_rootAccounts.value(root.value(QStringLiteral("id")).toString()));
+        roots.append(QJsonObject::fromVariantMap(root));
+    }
+    // Locations whose account is signed out do not run, but stay in the list, waiting for it
+    const QList<RootConfig> &configured = m_cachedRoots;
+    QHash<QString, int> locations;
+    for (const RootConfig &root : configured) {
+        if (root.kind == QLatin1String("shortcut")) {
+            continue;
+        }
+        locations[root.accountId] += 1;
+        if (!root.enabled || m_roots.contains(root.id)) {
+            continue;
+        }
+        roots.append(QJsonObject{{QStringLiteral("id"), root.id},
+                                 {QStringLiteral("name"), root.name},
+                                 {QStringLiteral("localPath"), root.localPath},
+                                 {QStringLiteral("kind"), root.kind},
+                                 {QStringLiteral("webUrl"), root.webUrl},
+                                 {QStringLiteral("accountId"), root.accountId},
+                                 {QStringLiteral("filesOnDemand"), root.filesOnDemand},
+                                 {QStringLiteral("excludedPaths"), QJsonArray::fromStringList(root.excludedPaths)},
+                                 // Not running although its account is signed in: starting (a reload)
+                                 {QStringLiteral("state"), m_accountSignedIn.value(root.accountId) ? QStringLiteral("waiting") : QStringLiteral("signedOut")}});
+    }
+    // Every account on this computer (also those only another app of the suite uses): who is
+    // signed in here, for the Accounts page and the tray
+    QJsonArray accounts;
+    const QList<AccountInfo> &known = m_cachedAccounts;
+    for (const AccountInfo &each : known) {
+        accounts.append(QJsonObject{{QStringLiteral("id"), each.id},
+                                    {QStringLiteral("displayName"), each.displayName},
+                                    {QStringLiteral("userPrincipalName"), each.userPrincipalName},
+                                    {QStringLiteral("organization"), each.organization},
+                                    {QStringLiteral("tenantId"), each.tenantId},
+                                    {QStringLiteral("current"), each.id == account.id},
+                                    {QStringLiteral("signedIn"), m_accountSignedIn.value(each.id)},
+                                    {QStringLiteral("locations"), locations.value(each.id)}});
     }
     return QJsonObject{
         {QStringLiteral("version"), QCoreApplication::applicationVersion()},
@@ -330,8 +554,10 @@ QJsonObject Daemon::status() const
         {QStringLiteral("setupDone"), general.setupDone},
         {QStringLiteral("baseFolder"), general.baseFolder},
         {QStringLiteral("pauseOnMeteredNetwork"), general.pauseOnMeteredNetwork},
+        {QStringLiteral("accounts"), accounts},
         {QStringLiteral("account"),
-         QJsonObject{{QStringLiteral("displayName"), account.displayName},
+         QJsonObject{{QStringLiteral("id"), account.id},
+                     {QStringLiteral("displayName"), account.displayName},
                      {QStringLiteral("userPrincipalName"), account.userPrincipalName},
                      {QStringLiteral("organization"), account.organization}}},
         {QStringLiteral("paused"), m_userPaused || m_meteredPaused},
@@ -400,6 +626,7 @@ void Daemon::reconcileShortcuts(const QString &parentId, const QVariantList &sho
         root.webUrl = shortcut.value(QStringLiteral("webUrl")).toString();
         root.kind = QStringLiteral("shortcut");
         root.parentRootId = parentId;
+        root.accountId = m_rootAccounts.value(parentId);
         wanted.insert(root.id);
         wantedPaths.insert(root.localPath);
 
@@ -413,12 +640,14 @@ void Daemon::reconcileShortcuts(const QString &parentId, const QVariantList &sho
         delete m_roots.take(root.id);
         Config::addRoot(root);
         qCInfo(GRAPHSYNC) << "Shortcut" << root.name << "->" << root.localPath;
-        createController(root);
+        // The parent's own sign-in (it keeps it alive): never a root without one
+        createController(root, parent->auth());
         changed = true;
     }
     for (auto it = existing.constBegin(); it != existing.constEnd(); ++it) {
         if (!wanted.contains(it.key())) {
             delete m_roots.take(it.key());
+            m_rootAccounts.remove(it.key());
             Config::removeRoot(it.key());
             changed = true;
         }
@@ -505,7 +734,9 @@ void Daemon::notifyLinkCopied(const QString &path, const QString &name, const QS
     if (scope == QLatin1String("anonymous")) {
         text = edit ? i18n("Anyone with the link can edit %1.", name) : i18n("Anyone with the link can view %1.", name);
     } else if (scope == QLatin1String("organization")) {
-        const QString organization = Config::account().organization;
+        QString rel;
+        const RootController *owner = controllerFor(path, &rel);
+        const QString organization = GraphCore::Accounts::find(owner ? m_rootAccounts.value(owner->id()) : Config::account().id).organization;
         if (organization.isEmpty()) {
             text = edit ? i18n("People in your organisation with the link can edit %1.", name) : i18n("People in your organisation with the link can view %1.", name);
         } else {
@@ -594,18 +825,22 @@ void Daemon::notifyBigDelete(const QString &rootId, const QString &rootName, int
     notification->sendEvent();
 }
 
-void Daemon::notifySignedOut()
+void Daemon::notifySignedOut(const QString &accountId)
 {
-    if (m_signedOutNotified || !notificationsAvailable()) {
+    if (m_signedOutNotified.contains(accountId) || !notificationsAvailable()) {
         return;
     }
-    m_signedOutNotified = true;
+    m_signedOutNotified.insert(accountId);
+    const AccountInfo account = GraphCore::Accounts::find(accountId);
     auto *notification = new KNotification(QStringLiteral("signedOut"), KNotification::Persistent);
     notification->setComponentName(componentName);
     notification->setTitle(i18n("Sign in again"));
-    notification->setText(i18n("Your session expired, so files are not syncing."));
+    notification->setText(account.userPrincipalName.isEmpty() ? i18n("Your session expired, so files are not syncing.")
+                                                              : i18n("The session of %1 expired, so its files are not syncing.", account.userPrincipalName));
     KNotificationAction *signIn = notification->addAction(i18n("Sign In"));
-    connect(signIn, &KNotificationAction::activated, this, [] {
+    connect(signIn, &KNotificationAction::activated, this, [this, accountId] {
+        // The app signs in the account it works with: make it this one
+        setCurrentAccount(accountId);
         launchApp({QStringLiteral("--sign-in")});
     });
     notification->sendEvent();

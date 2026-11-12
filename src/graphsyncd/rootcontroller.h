@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include <memory>
+
 #include "config.h"
 #include "syncengine.h"
 
@@ -25,10 +27,15 @@ class RootController : public QObject
 {
     Q_OBJECT
 public:
-    RootController(const RootConfig &root, Auth *auth, QObject *parent = nullptr);
+    // Keeps auth alive while it runs (a reload or sign-out elsewhere may drop it meanwhile)
+    RootController(const RootConfig &root, std::shared_ptr<Auth> auth, QObject *parent = nullptr);
     ~RootController() override;
 
     QString id() const;
+    std::shared_ptr<Auth> auth() const
+    {
+        return m_auth;
+    }
     QString localPath() const;
     std::shared_ptr<const SyncEngine::StatusSnapshot> snapshot() const;
     QVariantMap status() const;
@@ -60,8 +67,11 @@ Q_SIGNALS:
 
 private:
     void scheduleSync(int delayMs);
+    // Watches the local folder for changes once it exists
+    void startWatcher();
 
     RootConfig m_root;
+    std::shared_ptr<Auth> m_auth;
     QThread m_thread;
     SyncEngine *m_engine = nullptr;
     LocalWatcher *m_watcher = nullptr;

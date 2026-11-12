@@ -3,6 +3,9 @@
 
 #pragma once
 
+#include <functional>
+#include <memory>
+
 #include <QDateTime>
 #include <QString>
 #include <QStringList>
@@ -12,6 +15,7 @@
 namespace GraphSync
 {
 
+class Auth;
 class GraphClient;
 struct GraphResponse;
 
@@ -29,6 +33,8 @@ public:
         QString webUrl;
         // SharePoint's own permissions page for this item (site owners can manage access there)
         QString permissionsUrl;
+        // The account of the sync root it lies in: every call about the item uses its sign-in
+        QString accountId;
         bool isFolder = false;
         bool valid() const
         {
@@ -37,6 +43,13 @@ public:
     };
 
     explicit ItemService(GraphClient *graph);
+    ~ItemService();
+
+    // With more than one account: the Graph client of an account (the one given above for the
+    // current account), null for an account that is no longer there (its requests then fail).
+    // Items go through the sign-in of the account whose sync root holds them.
+    using GraphProvider = std::function<GraphClient *(const QString &accountId)>;
+    void setGraphProvider(GraphProvider provider);
 
     // The online item behind a local path inside a sync root
     Item resolve(const QString &localPath, QString *error);
@@ -56,7 +69,8 @@ public:
 
     // Name suggestions: [{name, email}]. Needs People.Read or User.ReadBasic.All; without them
     // *notAllowed is set and the caller asks for plain e-mail addresses instead.
-    QVariantList searchPeople(const QString &query, bool *notAllowed, QString *error);
+    // accountId: whose organisation to search (the account of the item being shared)
+    QVariantList searchPeople(const QString &query, const QString &accountId, bool *notAllowed, QString *error);
 
     // Newest first: [{id, modified (QDateTime), modifiedBy, size, current}]
     QVariantList versions(const Item &item, QString *error);
@@ -70,8 +84,12 @@ public:
 private:
     static QString itemPath(const Item &item);
     static QString describe(const GraphResponse &response);
+    GraphClient *graphFor(const QString &accountId) const;
 
     GraphClient *m_graph;
+    GraphProvider m_provider;
+    std::unique_ptr<Auth> m_noAccountAuth;
+    std::unique_ptr<GraphClient> m_noAccountGraph;
 };
 
 }

@@ -85,6 +85,28 @@ in. Check from a terminal with `graphsyncctl people <part of a name>`.
 Recommended: in Enterprise applications, set **Assignment required** to Yes and assign only the
 Linux users. Note the **Application (client) ID** and **Directory (tenant) ID**.
 
+### Accounts of other organisations
+
+Settings > Accounts > **Add Account** (or `graphsyncctl add-account <e-mail address>`) signs in
+another work account; each location syncs with its own account. For an account of another
+organisation there are two ways:
+
+- **One registration for all organisations** (recommended): set **Supported account types** of
+  the registration above to *Multiple Entra ID tenants*, preferably with *Allow only certain
+  tenants* listing your own tenant and the other ones. An administrator of each other
+  organisation approves the app once at
+  `https://login.microsoftonline.com/<their domain>/adminconsent?client_id=<client id>`
+  (`graphsyncctl approval-link <e-mail address>` prints it; the app offers it when a sign-in fails
+  for that reason). That approval covers every permission on the registration. No guest accounts
+  are needed: people sign in with their own organisation's account.
+- **A registration in the other organisation**: it creates its own registration with the settings
+  above; when adding the account, tick *This organization has its own app registration* and enter
+  its client ID.
+
+Accounts are kept in `~/.config/graphaccountsrc`, shared with the other apps of the suite; an
+account added there by another app shows under *Other accounts on this computer* and needs one
+sign-in here.
+
 ## 3. Build
 
 ```

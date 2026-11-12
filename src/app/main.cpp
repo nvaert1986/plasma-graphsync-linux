@@ -45,6 +45,9 @@ StartRequest parseRequest(QCommandLineParser &parser, const Backend &backend)
     if (parser.isSet(QStringLiteral("choose-folders"))) {
         return {QStringLiteral("chooseFolders"), parser.value(QStringLiteral("choose-folders"))};
     }
+    if (parser.isSet(QStringLiteral("add-account"))) {
+        return {QStringLiteral("addAccount"), {}};
+    }
     if (parser.isSet(QStringLiteral("sign-in"))) {
         return {QStringLiteral("signIn"), {}};
     }
@@ -63,6 +66,7 @@ void setupParser(QCommandLineParser &parser)
     parser.addOption({QStringLiteral("setup"), i18n("Run the setup wizard")});
     parser.addOption({QStringLiteral("add"), i18n("Add a library")});
     parser.addOption({QStringLiteral("sign-in"), i18n("Sign in again")});
+    parser.addOption({QStringLiteral("add-account"), i18n("Sign in to another account")});
     parser.addOption({QStringLiteral("choose-folders"), i18n("Choose which folders of a library to sync"), QStringLiteral("root")});
     parser.addOption({QStringLiteral("add-personal"), i18n("Start syncing your own OneDrive")});
     parser.addOption({QStringLiteral("copy-link"), i18n("Copy a link to a synced file or folder"), QStringLiteral("path")});
@@ -81,6 +85,8 @@ int main(int argc, char **argv)
 {
     QApplication app(argc, argv);
     KLocalizedString::setApplicationDomain("plasma-graphsync-linux");
+    // Accounts are shared by the suite; the app registration per account is this app's own
+    GraphCore::Accounts::setApplication(QStringLiteral("plasma-graphsync-linux"));
     if (qEnvironmentVariableIsEmpty("QT_QUICK_CONTROLS_STYLE")) {
         QQuickStyle::setStyle(QStringLiteral("org.kde.desktop"));
     }

@@ -4,7 +4,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: plasma_applet_io.github.nvaert1986.graphsync.tray\n"
-"PO-Revision-Date: 2026-11-11 10:35+0100\n"
+"PO-Revision-Date: 2026-11-12 08:55+0100\n"
 "Last-Translator: plasma-graphsync-linux contributors\n"
 "Language-Team: Dutch\n"
 "Language: nl\n"
@@ -33,6 +33,11 @@ msgstr "Synchroniseren is gepauzeerd"
 
 msgid "Waiting for your decision"
 msgstr "Wacht op je beslissing"
+
+msgid "1 account is signed out"
+msgid_plural "%1 accounts are signed out"
+msgstr[0] "1 account is afgemeld"
+msgstr[1] "%1 accounts zijn afgemeld"
 
 msgid "1 library has a problem"
 msgid_plural "%1 libraries have problems"
@@ -118,8 +123,31 @@ msgstr "Help en instellingen"
 msgid "Add a Library…"
 msgstr "Bibliotheek toevoegen…"
 
+msgid "Add Account…"
+msgstr "Account toevoegen…"
+
 msgid "Sync Now"
 msgstr "Nu synchroniseren"
+
+msgctxt "%1 is the account, %2 the organization"
+msgid "%1 (%2) is signed out, so its files are not syncing."
+msgstr "%1 (%2) is afgemeld, daarom worden de bestanden ervan niet gesynchroniseerd."
+
+msgid "%1 is signed out, so its files are not syncing."
+msgstr "%1 is afgemeld, daarom worden de bestanden ervan niet gesynchroniseerd."
+
+msgid "Sign In"
+msgstr "Aanmelden"
+
+msgctxt "%1 is the account, %2 the organization"
+msgid "%1 (%2)"
+msgstr "%1 (%2)"
+
+msgid "Problem"
+msgstr "Probleem"
+
+msgid "Up to date"
+msgstr "Bijgewerkt"
 
 msgid "%1 of %2 files in %3 are gone from this computer. Nothing has been deleted online yet."
 msgstr "%1 van %2 bestanden in %3 zijn van deze computer verdwenen. Er is online nog niets verwijderd."
@@ -138,9 +166,6 @@ msgstr "Alles is bijgewerkt"
 
 msgid "Recently synced files appear here."
 msgstr "Recent gesynchroniseerde bestanden verschijnen hier."
-
-msgid "Sign In"
-msgstr "Aanmelden"
 
 msgid "Set Up"
 msgstr "Instellen"

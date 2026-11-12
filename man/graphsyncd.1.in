@@ -1,0 +1,39 @@
+.\" SPDX-FileCopyrightText: 2026 plasma-graphsync-linux contributors
+.\" SPDX-License-Identifier: GPL-3.0-or-later
+.TH GRAPHSYNCD 1 "November 2026" "plasma-graphsync-linux @PROJECT_VERSION@" "User Commands"
+.SH NAME
+graphsyncd \- sync service of Graph Sync, the OneDrive and SharePoint sync client for KDE Plasma
+.SH SYNOPSIS
+.B graphsyncd
+.SH DESCRIPTION
+.B graphsyncd
+keeps the sync locations of all accounts in step with OneDrive and SharePoint through Microsoft
+Graph, and serves the tray widget, the app, the System Settings page and the Dolphin plugins.
+It runs once per user as the systemd user service
+.B plasma-graphsync-linux.service
+and is also started on demand through D-Bus (io.github.nvaert1986.GraphSync). It is not meant to be
+started by hand.
+.PP
+Each location syncs with its own account; a signed-out account stops only its own locations. The
+service watches the local folders, listens for Microsoft's change notifications and checks
+everything regularly. On SIGTERM it saves the state of every location and stops.
+.SH FILES
+.TP
+.I ~/.config/graphsyncrc
+Settings and locations.
+.TP
+.I ~/.config/graphaccountsrc
+Accounts, shared with the other apps of the suite.
+.TP
+.I ~/.local/state/graphsync/
+Sync state per location (owner only).
+.TP
+.I $XDG_RUNTIME_DIR/plasma-graphsync-linux/socket
+State of files for the Dolphin emblems.
+.SH DIAGNOSTICS
+Messages go to the journal:
+.B journalctl \-\-user \-t graphsyncd
+.SH SEE ALSO
+.BR graphsyncctl (1),
+.BR plasma\-graphsync\-linux (1),
+.BR systemctl (1)

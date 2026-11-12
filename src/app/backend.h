@@ -19,6 +19,7 @@
 
 #include <atomic>
 #include <functional>
+#include <map>
 #include <memory>
 
 namespace GraphSync
@@ -106,6 +107,12 @@ public:
     Q_INVOKABLE void syncNow();
     Q_INVOKABLE bool removeRoot(const QString &id);
     Q_INVOKABLE void signOut();
+    // Accounts (Settings > Accounts; the list is status.accounts, each location has accountId).
+    // The current account is the one signing in, new locations and the Sync button use.
+    Q_INVOKABLE bool setCurrentAccount(const QString &id);
+    Q_INVOKABLE void signOutAccount(const QString &id);
+    // Signs out and stops all locations of the account; the local files stay
+    Q_INVOKABLE void removeAccount(const QString &id);
     static QString versionCacheFolder();
     // file:// URLs and back, properly encoded ("#", "%" and spaces in names)
     Q_INVOKABLE static QUrl fileUrl(const QString &path);
@@ -118,6 +125,8 @@ public:
     Q_INVOKABLE bool trayNeedsPanelRestart() const;
     Q_INVOKABLE void restartPanel();
     Q_INVOKABLE QString addPersonal();
+    // The OneDrive of an account that need not be the current one (Settings > Accounts)
+    Q_INVOKABLE QString addPersonalFor(const QString &accountId);
     Q_INVOKABLE void openNotificationSettings();
     Q_INVOKABLE void showInFolder(const QString &path);
     // Starts the app with these arguments (System Settings opens the app's pages this way)
@@ -139,6 +148,24 @@ public:
     // to the app. The code shows up in deviceCode while this waits.
     Q_INVOKABLE bool signInWithCode();
     Q_INVOKABLE void cancelSignIn();
+
+    // Adding another account (another organisation, or another user): the next signIn() or
+    // signInWithCode() signs in a new account for the work e-mail address, with the suite's app
+    // registration or clientId. The new account becomes the one the app works with. False with
+    // lastError when the address has no Microsoft 365 organisation or the client ID is invalid.
+    Q_INVOKABLE bool startNewAccount(const QString &email, const QString &clientId);
+    // Back to the current account (the Add Account page closed without signing in)
+    Q_INVOKABLE void cancelNewAccount();
+    // The registration new accounts sign in with
+    Q_PROPERTY(QString defaultClientId READ defaultClientId NOTIFY configChanged)
+    QString defaultClientId() const;
+    // Set when the last sign-in failed because the organisation has not approved the app: the
+    // page where its administrator does that
+    Q_PROPERTY(QString adminConsentLink READ adminConsentLink NOTIFY lastErrorChanged)
+    QString adminConsentLink() const
+    {
+        return m_adminConsentLink;
+    }
     Q_PROPERTY(QString deviceCode READ deviceCode NOTIFY deviceCodeChanged)
     Q_PROPERTY(QString deviceCodeAddress READ deviceCodeAddress NOTIFY deviceCodeChanged)
     QString deviceCode() const
@@ -157,16 +184,24 @@ public:
     Q_INVOKABLE QVariantList libraries(const QString &siteId);
     Q_INVOKABLE QVariantMap personalDrive();
 
-    // Choose folders: direct subfolders of a folder ("" = drive root)
-    Q_INVOKABLE QVariantList childFolders(const QString &driveId, const QString &itemId);
+    // Choose folders: direct subfolders of a folder ("" = drive root), listed with the sign-in of
+    // the location rootId (two users of one organisation may sync the same library), or of the
+    // current account when there is none yet (adding a library)
+    Q_INVOKABLE QVariantList childFolders(const QString &driveId, const QString &itemId, const QString &rootId = {});
     Q_INVOKABLE QVariantMap root(const QString &rootId);
     Q_INVOKABLE bool setExcludedFolders(const QString &rootId, const QStringList &paths);
 
     // The SharePoint Sync button
+    // accountId: the account the link is for (see odopenAccount); signInAccountId when that one is
+    // signed out, addAccountEmail when the link names someone not added here
     Q_INVOKABLE QVariantMap resolveOdopen(const QString &url);
+    // Whether the account has a working sign-in here (the daemon's view)
+    bool accountSignedIn(const QString &accountId) const;
 
     Q_INVOKABLE QString personalPath() const;
     Q_INVOKABLE QString libraryPath(const QString &siteName, const QString &libraryName) const;
+    // The same for another account (a Sync button link of another organisation)
+    QString libraryPathFor(const AccountInfo &account, const QString &siteName, const QString &libraryName) const;
     Q_INVOKABLE bool pathInUse(const QString &path);
     // A folder below the chosen one for a library name (made safe for a path)
     Q_INVOKABLE static QString childPath(const QUrl &folder, const QString &name);
@@ -181,7 +216,8 @@ public:
     Q_INVOKABLE bool removePermission(const QString &path, const QString &permissionId);
     Q_INVOKABLE bool invite(const QString &path, const QStringList &emails, const QString &role, bool notify, const QString &message);
     // {people: [{name, email}], notAllowed}
-    Q_INVOKABLE QVariantMap searchPeople(const QString &query);
+    // In the organisation of the account that syncs path
+    Q_INVOKABLE QVariantMap searchPeople(const QString &path, const QString &query);
     Q_INVOKABLE QVariantList versions(const QString &path);
     Q_INVOKABLE bool openVersion(const QString &path, const QString &versionId);
     Q_INVOKABLE bool saveVersionAs(const QString &path, const QString &versionId, const QUrl &target);
@@ -233,8 +269,12 @@ private:
     void importDone(int result, const QString &message);
     void refreshStatus();
     QString callDaemon(const QString &method, const QVariantList &arguments = {});
-    GraphResponse get(const QString &path);
+    // A Graph GET with the current account, or with accountId's sign-in
+    GraphResponse get(const QString &path, const QString &accountId = {});
     void setError(const QString &error);
+    // Sends a command to graphsyncd ({"command": name, "id": id}) and takes over the current
+    // account it may have changed
+    void accountCommand(const QString &name, const QString &id);
     void setBusy(bool busy);
     void fetchOrganization();
     QVariantList siteList(const QString &path);
@@ -253,6 +293,18 @@ private:
     QString m_importState;
     QString m_importMessage;
     std::unique_ptr<GraphClient> m_graph;
+    // Other accounts than the current one (files in their locations, their Sync button links):
+    // their own sign-in and Graph client, made on first use
+    struct AccountClient {
+        std::unique_ptr<Auth> auth;
+        std::unique_ptr<GraphClient> graph;
+    };
+    std::map<QString, AccountClient> m_accountClients;
+    GraphClient *graphForAccount(const QString &accountId);
+    // After sign-ins changed: the other accounts' clients read their sign-in again
+    void resetAccountClients();
+    // The account of the sync root holding path (empty: none)
+    static QString accountOfPath(const QString &path);
     std::unique_ptr<ItemService> m_itemService;
     QHash<QString, ItemService::Item> m_items;
     QString m_deviceCode;
@@ -260,6 +312,13 @@ private:
     std::atomic_bool m_cancelSignIn = false;
     QString m_baseFolder;
     QString m_lastError;
+    QString m_adminConsentLink;
+    // The Add Account page closed while a sign-in was still waiting: back to the current account
+    // once it returns
+    bool m_restoreAfterSignIn = false;
+    bool endSignIn(bool ok, const QString &error);
+    // Work e-mail address of the account being added (pre-fills Microsoft's account picker)
+    QString m_loginHint;
     bool m_busy = false;
     QVariantMap m_status;
     bool m_daemonRunning = false;

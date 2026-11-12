@@ -52,13 +52,29 @@ QDBusInterface *daemon(QObject *parent)
 }
 }
 
+namespace
+{
+// The account from before 0.8.0 moves to the shared account file first, unless an install of
+// plasma-onedrive-linux still waits to be taken over (then it moves after that import)
+AuthConfig startAuth()
+{
+    if (!Migration::pending()) {
+        Migration::adoptSharedAccounts(0);
+    }
+    return Config::currentAuth();
+}
+}
+
 Backend::Backend(QObject *parent)
     : QObject(parent)
-    , m_auth(std::make_unique<Auth>(Config::auth()))
+    , m_auth(std::make_unique<Auth>(startAuth()))
     , m_graph(std::make_unique<GraphClient>(m_auth.get()))
     , m_itemService(std::make_unique<ItemService>(m_graph.get()))
     , m_baseFolder(Config::general().baseFolder)
 {
+    m_itemService->setGraphProvider([this](const QString &accountId) {
+        return graphForAccount(accountId);
+    });
     removeVersionCopies(24 * 60 * 60);
     // An install of plasma-onedrive-linux waiting to be taken over: in the background (stopping
     // the old daemon can take a while), with a page that says so instead of the setup wizard
@@ -103,8 +119,20 @@ void Backend::refreshStatus()
 void Backend::onStatusChanged(const QString &json)
 {
     m_daemonRunning = true;
+    const QVariantMap previous = m_status;
     m_status = QJsonDocument::fromJson(json.toUtf8()).toVariant().toMap();
     Q_EMIT statusChanged();
+    // Another app or the tray changed the current account, or a sign-in was lost or made
+    const QString account = m_status.value(QStringLiteral("account")).toMap().value(QStringLiteral("id")).toString();
+    if (account != previous.value(QStringLiteral("account")).toMap().value(QStringLiteral("id")).toString()
+        || m_status.value(QStringLiteral("signedIn")) != previous.value(QStringLiteral("signedIn"))) {
+        // Not while a sign-in runs or a new account is being added: m_auth is busy with that one
+        if (!busy() && m_loginHint.isEmpty() && Config::account().objectId != m_auth->config().objectId) {
+            m_auth->setConfig(Config::currentAuth());
+        }
+        resetAccountClients();
+        Q_EMIT accountChanged();
+    }
 }
 
 QVariantMap Backend::status() const
@@ -246,6 +274,44 @@ void Backend::recheckAll()
     sendCommand({{QStringLiteral("command"), QStringLiteral("recheck")}});
 }
 
+GraphClient *Backend::graphForAccount(const QString &accountId)
+{
+    if (accountId.isEmpty()) {
+        return m_graph.get();
+    }
+    const AccountInfo account = GraphCore::Accounts::find(accountId);
+    if (!account.isValid()) {
+        // Gone: never another account's sign-in instead
+        return nullptr;
+    }
+    // The current account: the app's own sign-in (unless that one is busy adding a new account)
+    if (account.objectId == m_auth->config().objectId && account.tenantId == m_auth->config().tenantId) {
+        return m_graph.get();
+    }
+    auto it = m_accountClients.find(accountId);
+    if (it == m_accountClients.end()) {
+        AccountClient client;
+        client.auth = std::make_unique<Auth>(Config::authFor(account));
+        client.graph = std::make_unique<GraphClient>(client.auth.get());
+        it = m_accountClients.emplace(accountId, std::move(client)).first;
+    }
+    return it->second.graph.get();
+}
+
+void Backend::resetAccountClients()
+{
+    // Kept, not deleted: a status update can arrive while one of them waits for Graph. The
+    // sign-in is read again on its next use
+    for (auto &[accountId, client] : m_accountClients) {
+        client.auth->setConfig(Config::authFor(GraphCore::Accounts::find(accountId)));
+    }
+}
+
+QString Backend::accountOfPath(const QString &path)
+{
+    return Config::rootForPath(path).accountId;
+}
+
 ItemService::Item Backend::item(const QString &path)
 {
     const QString key = QDir::cleanPath(path);
@@ -281,7 +347,8 @@ QVariantMap Backend::itemInfo(const QString &path)
         {QStringLiteral("isFolder"), found.valid() ? found.isFolder : QFileInfo(path).isDir()},
         {QStringLiteral("webUrl"), found.webUrl},
         {QStringLiteral("permissionsUrl"), found.permissionsUrl},
-        {QStringLiteral("organization"), Config::account().organization},
+        // "People in <organisation>": the organisation of the file's own account, not the current one
+        {QStringLiteral("organization"), GraphCore::Accounts::find(found.valid() ? found.accountId : accountOfPath(path)).organization},
     };
 }
 
@@ -352,12 +419,12 @@ bool Backend::invite(const QString &path, const QStringList &emails, const QStri
     return invited;
 }
 
-QVariantMap Backend::searchPeople(const QString &query)
+QVariantMap Backend::searchPeople(const QString &path, const QString &query)
 {
     // No busy indicator: this runs while the user types
     bool notAllowed = false;
     QString error;
-    const QVariantList people = m_itemService->searchPeople(query, &notAllowed, &error);
+    const QVariantList people = m_itemService->searchPeople(query, accountOfPath(path), &notAllowed, &error);
     return {{QStringLiteral("people"), people}, {QStringLiteral("notAllowed"), notAllowed}};
 }
 
@@ -728,7 +795,8 @@ void Backend::importDone(int result, const QString &message)
         break;
     }
     // Everything read at start may have changed: registration, account, folders, setup
-    m_auth->setConfig(Config::auth());
+    Migration::adoptSharedAccounts(0);
+    m_auth->setConfig(Config::currentAuth());
     m_baseFolder = Config::general().baseFolder;
     if (static_cast<Migration::Result>(result) == Migration::Result::Imported && setupDone()) {
         startDaemon();
@@ -767,9 +835,72 @@ void Backend::removeVersionCopies(qint64 olderThanSeconds)
 
 void Backend::signOut()
 {
-    removeVersionCopies(0);
-    callDaemon(QStringLiteral("SignOut"));
+    signOutAccount(Config::account().id);
+}
+
+void Backend::accountCommand(const QString &name, const QString &id)
+{
+    const QJsonObject command{{QStringLiteral("command"), name}, {QStringLiteral("id"), id}};
+    callDaemon(QStringLiteral("Command"), {QString::fromUtf8(QJsonDocument(command).toJson(QJsonDocument::Compact))});
+    // A sign-out may have handed the current account to another one; the other accounts' sign-ins
+    // are read again when needed
+    m_auth->setConfig(Config::currentAuth());
+    resetAccountClients();
+    m_items.clear();
+    refreshStatus();
     Q_EMIT accountChanged();
+    Q_EMIT configChanged();
+}
+
+bool Backend::setCurrentAccount(const QString &id)
+{
+    if (!GraphCore::Accounts::find(id).isValid()) {
+        return false;
+    }
+    if (id == Config::account().id) {
+        return true;
+    }
+    // Also without a running daemon (the next start reads it)
+    Config::setCurrentAccountId(id);
+    accountCommand(QStringLiteral("setCurrentAccount"), id);
+    return true;
+}
+
+void Backend::signOutAccount(const QString &id)
+{
+    if (id.isEmpty()) {
+        return;
+    }
+    if (id == Config::account().id) {
+        // Copies of old versions came from this account's files
+        removeVersionCopies(0);
+    }
+    if (m_daemonRunning) {
+        accountCommand(QStringLiteral("signOutAccount"), id);
+        return;
+    }
+    // No daemon: sign out here
+    const AccountInfo account = GraphCore::Accounts::find(id);
+    if (account.isValid()) {
+        Auth auth(Config::authFor(account));
+        auth.logout();
+    }
+    m_auth->setConfig(Config::currentAuth());
+    // Its tokens may still be in memory from Share or Version History
+    resetAccountClients();
+    Q_EMIT accountChanged();
+}
+
+void Backend::removeAccount(const QString &id)
+{
+    if (id.isEmpty() || !m_daemonRunning) {
+        // Removing locations is the daemon's work (Places entries, its state)
+        return;
+    }
+    if (id == Config::account().id) {
+        removeVersionCopies(0);
+    }
+    accountCommand(QStringLiteral("removeAccount"), id);
 }
 
 bool Backend::trayNeedsPanelRestart() const
@@ -821,6 +952,31 @@ void Backend::startDaemon()
     QProcess::startDetached(QStringLiteral("systemctl"), {QStringLiteral("--user"), QStringLiteral("start"), QStringLiteral("plasma-graphsync-linux.service")});
 }
 
+QString Backend::addPersonalFor(const QString &accountId)
+{
+    // Another account's OneDrive (an account card in Settings): with that account's sign-in, its
+    // organisation and folder name, without making it the current account
+    const AccountInfo account = GraphCore::Accounts::find(accountId);
+    GraphClient *graph = graphForAccount(accountId);
+    if (!account.isValid() || !graph) {
+        return {};
+    }
+    setBusy(true);
+    const GraphResponse drive = graph->get(QStringLiteral("/me/drive?$select=id,webUrl"));
+    setBusy(false);
+    if (!drive.ok()) {
+        setError(drive.describe());
+        return {};
+    }
+    const QString label = account.organization.isEmpty() ? organization() : Config::organizationLabel(account);
+    return addRoot({{QStringLiteral("name"), i18nc("name of the personal OneDrive, %1 is the organization", "OneDrive - %1", account.organization)},
+                    {QStringLiteral("localPath"), QDir(m_baseFolder).filePath(i18nc("folder name of the personal OneDrive, %1 is the organization", "OneDrive - %1", safeName(label)))},
+                    {QStringLiteral("driveId"), drive.json().value(QLatin1String("id")).toString()},
+                    {QStringLiteral("kind"), QStringLiteral("personal")},
+                    {QStringLiteral("webUrl"), drive.json().value(QLatin1String("webUrl")).toString()},
+                    {QStringLiteral("accountId"), account.id}});
+}
+
 QString Backend::addPersonal()
 {
     const QVariantMap drive = personalDrive();
@@ -856,7 +1012,12 @@ void Backend::launchApp(const QStringList &arguments)
 
 bool Backend::signedIn() const
 {
-    return !Config::account().userPrincipalName.isEmpty() && m_auth->isConfigured();
+    if (!Config::account().isValid() || !m_auth->isConfigured()) {
+        return false;
+    }
+    // The current account may be one that is signed out (made current to sign it in again): the
+    // daemon knows whether it has a working sign-in
+    return !m_daemonRunning || m_status.value(QStringLiteral("signedIn")).toBool();
 }
 
 QString Backend::displayName() const
@@ -913,10 +1074,84 @@ bool Backend::busy() const
 
 void Backend::setError(const QString &error)
 {
-    if (m_lastError != error) {
+    // Not approved by the organisation yet: offer the page where its administrator does that
+    const AuthConfig config = m_auth->config();
+    const QString consent = Auth::needsAdminConsent(error) ? Auth::adminConsentUrl(config.tenantId, config.clientId).toString() : QString();
+    if (m_lastError != error || m_adminConsentLink != consent) {
         m_lastError = error;
+        m_adminConsentLink = consent;
         Q_EMIT lastErrorChanged();
     }
+}
+
+bool Backend::startNewAccount(const QString &email, const QString &clientId)
+{
+    const QString address = email.trimmed();
+    const QString client = clientId.trimmed().isEmpty() ? defaultClientId() : clientId.trimmed().toLower();
+    if (!Auth::isGuid(client)) {
+        setError(i18n("The client ID looks like 00000000-0000-0000-0000-000000000000. Ask your IT administrator for it."));
+        return false;
+    }
+    if (!address.contains(QLatin1Char('@'))) {
+        setError(i18n("Enter the work e-mail address of the account."));
+        return false;
+    }
+    setBusy(true);
+    bool offline = false;
+    const QString tenant = Auth::resolveTenant(address, &offline);
+    setBusy(false);
+    if (tenant.isEmpty()) {
+        setError(offline ? i18n("No connection to Microsoft 365. Check the network and try again.")
+                         : i18n("No Microsoft 365 organization was found for %1.", address));
+        return false;
+    }
+    m_auth->setConfig({client, tenant, {}});
+    m_loginHint = address;
+    setError({});
+    return true;
+}
+
+void Backend::cancelNewAccount()
+{
+    if (busy()) {
+        // A sign-in still waits (in its own event loop) on m_auth: stop a code sign-in and switch
+        // back once it returned; changing m_auth under it would store its token wrongly
+        m_cancelSignIn = true;
+        m_restoreAfterSignIn = true;
+        return;
+    }
+    m_restoreAfterSignIn = false;
+    m_loginHint.clear();
+    m_auth->setConfig(Config::currentAuth());
+    setError({});
+}
+
+bool Backend::endSignIn(bool ok, const QString &error)
+{
+    if (m_restoreAfterSignIn) {
+        // The Add Account page was closed meanwhile. A sign-in that completed anyway registered
+        // its account properly (and made it current); either way back to the current account
+        m_restoreAfterSignIn = false;
+        m_loginHint.clear();
+        m_auth->setConfig(Config::currentAuth());
+        if (ok) {
+            return finishSignIn();
+        }
+        return false;
+    }
+    if (!ok) {
+        if (!m_cancelSignIn) {
+            setError(error);
+        }
+        return false;
+    }
+    return finishSignIn();
+}
+
+QString Backend::defaultClientId() const
+{
+    const QString suite = GraphCore::Accounts::defaultClientId();
+    return suite.isEmpty() ? Config::auth().clientId : suite;
 }
 
 void Backend::setBusy(bool busy)
@@ -927,10 +1162,17 @@ void Backend::setBusy(bool busy)
     }
 }
 
-GraphResponse Backend::get(const QString &path)
+GraphResponse Backend::get(const QString &path, const QString &accountId)
 {
+    GraphClient *graph = graphForAccount(accountId);
+    if (!graph) {
+        GraphResponse gone;
+        gone.errorString = i18n("The account of this location is no longer on this computer. Sign in to it again in Settings > Accounts.");
+        setError(gone.errorString);
+        return gone;
+    }
     setBusy(true);
-    const GraphResponse response = m_graph->get(path);
+    const GraphResponse response = graph->get(path);
     setBusy(false);
     setError(response.ok() ? QString() : response.describe());
     return response;
@@ -946,15 +1188,13 @@ bool Backend::signIn()
         // Builds on Qt older than 6.9: every Sign In button signs in with a code
         return signInWithCode();
     }
+    m_cancelSignIn = false;
     setBusy(true);
     QString error;
-    const bool ok = m_auth->interactiveLogin(&error);
+    // Signing in again: Microsoft's account picker starts at the account that expired
+    const bool ok = m_auth->interactiveLogin(&error, m_loginHint.isEmpty() ? Config::account().userPrincipalName : m_loginHint);
     setBusy(false);
-    if (!ok) {
-        setError(error);
-        return false;
-    }
-    return finishSignIn();
+    return endSignIn(ok, error);
 }
 
 bool Backend::configured() const
@@ -1010,22 +1250,36 @@ bool Backend::saveAppRegistration(const QString &client, const QString &tenant)
         }
     }
     const bool sameRegistration = old.clientId == config.clientId && old.tenantId == config.tenantId;
+    // Only an account of this registration's own organisation is affected; accounts of other
+    // organisations keep their sign-in as it is
+    const AuthConfig current = m_auth->config();
+    // ... and an account that signs in with another registration (the suite's, or its own) is not
+    // affected either: only tenant and client ID together
+    const bool currentOfIt = !current.objectId.isEmpty() && Auth::normalized(current).tenantId == old.tenantId
+        && Auth::normalized(current).clientId == old.clientId;
     bool reloadDaemon = false;
-    if (sameRegistration) {
-        if (Auth::keychainKeyFor(stored) != Auth::keychainKeyFor(config)) {
+    if (sameRegistration && currentOfIt) {
+        // The current account keeps its sign-in, under the key of the new spelling
+        AuthConfig target = config;
+        target.objectId = current.objectId;
+        if (Auth::keychainKeyFor(current) != Auth::keychainKeyFor(target)) {
             QString moveError;
-            if (!Auth::moveToken(stored, config, &moveError)) {
+            if (!Auth::moveToken(current, target, &moveError)) {
                 qCWarning(GRAPHSYNC) << "Could not move the sign-in to the new spelling:" << moveError;
             }
             reloadDaemon = true;
         }
-    } else if (m_auth->isConfigured()) {
-        // The stored sign-in belongs to the old registration
+        m_auth->setConfig(target);
+    } else if (!sameRegistration && currentOfIt) {
+        // The stored sign-in belongs to the old registration. signOut() alone: it signs this account
+        // out (through the daemon) and then m_auth already belongs to the next current account
         signOut();
-        m_auth->logout();
     }
     Config::setAuth(config);
-    m_auth->setConfig(config);
+    // Not signed in (any more): the next sign-in uses the new registration
+    if (!Config::account().isValid()) {
+        m_auth->setConfig(config);
+    }
     if (reloadDaemon) {
         callDaemon(QStringLiteral("ReloadAccount"));
     }
@@ -1037,11 +1291,16 @@ bool Backend::saveAppRegistration(const QString &client, const QString &tenant)
 
 bool Backend::finishSignIn()
 {
+    m_loginHint.clear();
+    // The account that signed in may have been used through an older sign-in
+    resetAccountClients();
     setError({});
     fetchOrganization();
-    // Let a running graphsyncd pick up the new refresh token
+    // Let a running graphsyncd pick up the new refresh token: only this account's locations
+    // restart, the other accounts' transfers go on
     std::unique_ptr<QDBusInterface> iface(daemon(nullptr));
-    iface->call(QStringLiteral("ReloadAccount"));
+    const QJsonObject reload{{QStringLiteral("command"), QStringLiteral("reloadAccount")}, {QStringLiteral("id"), Config::account().id}};
+    iface->call(QStringLiteral("Command"), QString::fromUtf8(QJsonDocument(reload).toJson(QJsonDocument::Compact)));
     Q_EMIT accountChanged();
     return true;
 }
@@ -1068,13 +1327,7 @@ bool Backend::signInWithCode()
     m_deviceCodeAddress.clear();
     Q_EMIT deviceCodeChanged();
     setBusy(false);
-    if (!ok) {
-        if (!m_cancelSignIn) {
-            setError(error);
-        }
-        return false;
-    }
-    return finishSignIn();
+    return endSignIn(ok, error);
 }
 
 void Backend::cancelSignIn()
@@ -1089,9 +1342,7 @@ void Backend::fetchOrganization()
     if (values.isEmpty()) {
         return;
     }
-    AccountInfo account = Config::account();
-    account.organization = values.at(0).toObject().value(QLatin1String("displayName")).toString();
-    Config::setAccount(account);
+    Config::setAccountOrganization(Config::account().id, values.at(0).toObject().value(QLatin1String("displayName")).toString());
 }
 
 QVariantList Backend::siteList(const QString &path)
@@ -1170,13 +1421,23 @@ QVariantMap Backend::personalDrive()
             {QStringLiteral("webUrl"), drive.value(QLatin1String("webUrl")).toString()}};
 }
 
-QVariantList Backend::childFolders(const QString &driveId, const QString &itemId)
+QVariantList Backend::childFolders(const QString &driveId, const QString &itemId, const QString &rootId)
 {
     QVariantList folders;
     const QString base = itemId.isEmpty() ? QStringLiteral("/drives/%1/root").arg(driveId) : QStringLiteral("/drives/%1/items/%2").arg(driveId, itemId);
     QString link = base + QStringLiteral("/children?$select=id,name,folder&$top=999");
+    QString accountId;
+    if (!rootId.isEmpty()) {
+        const RootConfig root = Config::root(rootId);
+        if (!GraphCore::Accounts::find(root.accountId).isValid()) {
+            // Never list it with another account's sign-in
+            setError(i18n("The account of %1 is no longer on this computer. Sign in to it again in Settings > Accounts.", root.name));
+            return {};
+        }
+        accountId = root.accountId;
+    }
     while (!link.isEmpty()) {
-        const GraphResponse response = get(link);
+        const GraphResponse response = get(link, accountId);
         if (!response.ok()) {
             break;
         }
@@ -1201,18 +1462,16 @@ QVariantList Backend::childFolders(const QString &driveId, const QString &itemId
 
 QVariantMap Backend::root(const QString &rootId)
 {
-    const QList<RootConfig> roots = Config::roots();
-    for (const RootConfig &root : roots) {
-        if (root.id == rootId) {
-            return {{QStringLiteral("id"), root.id},
-                    {QStringLiteral("name"), root.name},
-                    {QStringLiteral("localPath"), root.localPath},
-                    {QStringLiteral("driveId"), root.driveId},
-                    {QStringLiteral("remoteRootId"), root.remoteRootId},
-                    {QStringLiteral("excludedPaths"), root.excludedPaths}};
-        }
+    const RootConfig root = Config::root(rootId);
+    if (root.id.isEmpty()) {
+        return {};
     }
-    return {};
+    return {{QStringLiteral("id"), root.id},
+            {QStringLiteral("name"), root.name},
+            {QStringLiteral("localPath"), root.localPath},
+            {QStringLiteral("driveId"), root.driveId},
+            {QStringLiteral("remoteRootId"), root.remoteRootId},
+            {QStringLiteral("excludedPaths"), root.excludedPaths}};
 }
 
 bool Backend::setExcludedFolders(const QString &rootId, const QStringList &paths)
@@ -1251,12 +1510,20 @@ bool Backend::folderHasFiles(const QString &path)
 
 QString Backend::personalPath() const
 {
-    return QDir(m_baseFolder).filePath(i18nc("folder name of the personal OneDrive, %1 is the organization", "OneDrive - %1", safeName(organization())));
+    const AccountInfo account = Config::account();
+    const QString label = account.organization.isEmpty() ? organization() : Config::organizationLabel(account);
+    return QDir(m_baseFolder).filePath(i18nc("folder name of the personal OneDrive, %1 is the organization", "OneDrive - %1", safeName(label)));
 }
 
 QString Backend::libraryPath(const QString &siteName, const QString &libraryName) const
 {
-    return QDir(QDir(m_baseFolder).filePath(Config::sharePointFolderName(organization()))).filePath(safeName(siteName) + QStringLiteral(" - ") + safeName(libraryName));
+    return libraryPathFor(Config::account(), siteName, libraryName);
+}
+
+QString Backend::libraryPathFor(const AccountInfo &account, const QString &siteName, const QString &libraryName) const
+{
+    const QString label = account.organization.isEmpty() ? organization() : Config::organizationLabel(account);
+    return QDir(QDir(m_baseFolder).filePath(Config::sharePointFolderName(label))).filePath(safeName(siteName) + QStringLiteral(" - ") + safeName(libraryName));
 }
 
 bool Backend::pathInUse(const QString &path)
@@ -1266,6 +1533,21 @@ bool Backend::pathInUse(const QString &path)
     for (const RootConfig &root : roots) {
         if (clean == root.localPath || clean.startsWith(root.localPath + QLatin1Char('/')) || root.localPath.startsWith(clean + QLatin1Char('/'))) {
             return true;
+        }
+    }
+    return false;
+}
+
+bool Backend::accountSignedIn(const QString &accountId) const
+{
+    if (!m_daemonRunning) {
+        return accountId == Config::account().id && signedIn();
+    }
+    const QVariantList accounts = m_status.value(QStringLiteral("accounts")).toList();
+    for (const QVariant &value : accounts) {
+        const QVariantMap account = value.toMap();
+        if (account.value(QStringLiteral("id")).toString() == accountId) {
+            return account.value(QStringLiteral("signedIn")).toBool();
         }
     }
     return false;
@@ -1298,17 +1580,29 @@ QVariantMap Backend::resolveOdopen(const QString &url)
         return result;
     }
 
-    const AccountInfo account = Config::account();
-    const QString userId = param("userId");
-    // Only shown, never used; anything that does not look like an address is left out
+    const QString userId = Auth::isGuid(param("userId")) ? param("userId") : QString();
+    // Only shown and matched; anything that does not look like an address is left out
     static const QRegularExpression address(QStringLiteral("^[^\\s<>\"@]+@[^\\s<>\"@]+$"));
     const QString userEmail = address.match(param("userEmail")).hasMatch() ? param("userEmail") : QString();
-    result.insert(QStringLiteral("userEmail"), userEmail);
-    result.insert(QStringLiteral("accountMatches"),
-                  (!userId.isEmpty() && userId == account.objectId) || userEmail.compare(account.userPrincipalName, Qt::CaseInsensitive) == 0);
-
     const QString host = QUrl(webUrl).host();
-    const GraphResponse site = get(QStringLiteral("/sites/%1,%2,%3?$select=id,displayName,webUrl").arg(host, siteId, webId));
+    const AccountInfo account = Config::accountForLink(userId, userEmail, host);
+    const bool matches = (!userId.isEmpty() && userId.compare(account.objectId, Qt::CaseInsensitive) == 0)
+        || (!userEmail.isEmpty() && userEmail.compare(account.userPrincipalName, Qt::CaseInsensitive) == 0);
+    result.insert(QStringLiteral("userEmail"), userEmail);
+    result.insert(QStringLiteral("accountMatches"), matches);
+    result.insert(QStringLiteral("accountId"), account.id);
+    result.insert(QStringLiteral("accountName"), account.userPrincipalName);
+    // The link names someone not added here: offer to add that account
+    if (!matches && !userEmail.isEmpty()) {
+        result.insert(QStringLiteral("addAccountEmail"), userEmail);
+    }
+    if (account.isValid() && !accountSignedIn(account.id)) {
+        result.insert(QStringLiteral("signInAccountId"), account.id);
+        result.insert(QStringLiteral("error"), i18n("This link is for %1, which is signed out. Sign in to it first.", account.userPrincipalName));
+        return result;
+    }
+
+    const GraphResponse site = get(QStringLiteral("/sites/%1,%2,%3?$select=id,displayName,webUrl").arg(host, siteId, webId), account.id);
     if (!site.ok()) {
         result.insert(QStringLiteral("error"), i18n("The site could not be opened: %1", site.describe()));
         return result;
@@ -1316,7 +1610,7 @@ QVariantMap Backend::resolveOdopen(const QString &url)
     const QString siteGraphId = site.json().value(QLatin1String("id")).toString();
     // Names from Microsoft, not from the link (webTitle/listTitle could say anything)
     const QString siteName = site.json().value(QLatin1String("displayName")).toString();
-    const GraphResponse drive = get(QStringLiteral("/sites/%1/lists/%2/drive?$select=id,name,webUrl").arg(siteGraphId, listId));
+    const GraphResponse drive = get(QStringLiteral("/sites/%1/lists/%2/drive?$select=id,name,webUrl").arg(siteGraphId, listId), account.id);
     if (!drive.ok()) {
         result.insert(QStringLiteral("error"), i18n("The library could not be opened: %1", drive.describe()));
         return result;
@@ -1328,13 +1622,13 @@ QVariantMap Backend::resolveOdopen(const QString &url)
     result.insert(QStringLiteral("webUrl"), drive.json().value(QLatin1String("webUrl")).toString());
     result.insert(QStringLiteral("kind"), QStringLiteral("library"));
     result.insert(QStringLiteral("name"), QString(siteName + QStringLiteral(" - ") + libraryName));
-    result.insert(QStringLiteral("localPath"), libraryPath(siteName, libraryName));
+    result.insert(QStringLiteral("localPath"), libraryPathFor(account, siteName, libraryName));
 
     // Folder level (scope=OPENFOLDER): folderId is the item's UniqueId GUID (phase 0 T6)
     const QString folderId = param("folderId");
     if (param("scope") == QLatin1String("OPENFOLDER") && !folderId.isEmpty()) {
         const GraphResponse folder =
-            get(QStringLiteral("/sites/%1/lists/%2/items/%3/driveItem?$select=id,name,webUrl").arg(siteGraphId, listId, folderId));
+            get(QStringLiteral("/sites/%1/lists/%2/items/%3/driveItem?$select=id,name,webUrl").arg(siteGraphId, listId, folderId), account.id);
         if (!folder.ok()) {
             result.insert(QStringLiteral("error"), i18n("The folder could not be opened: %1", folder.describe()));
             return result;
@@ -1345,7 +1639,7 @@ QVariantMap Backend::resolveOdopen(const QString &url)
         result.insert(QStringLiteral("webUrl"), folder.json().value(QLatin1String("webUrl")).toString());
         result.insert(QStringLiteral("kind"), QStringLiteral("folder"));
         result.insert(QStringLiteral("name"), QString(siteName + QStringLiteral(" - ") + folderName));
-        result.insert(QStringLiteral("localPath"), libraryPath(siteName, folderName));
+        result.insert(QStringLiteral("localPath"), libraryPathFor(account, siteName, folderName));
     }
     return result;
 }
@@ -1353,6 +1647,12 @@ QVariantMap Backend::resolveOdopen(const QString &url)
 QString Backend::addRoot(const QVariantMap &root)
 {
     QVariantMap request = root;
+    // The account whose sign-in listed the library (Add a Library, the wizard), not whichever
+    // account is current by the time it is saved
+    if (request.value(QStringLiteral("accountId")).toString().isEmpty()) {
+        const AuthConfig listing = m_auth->config();
+        request.insert(QStringLiteral("accountId"), GraphCore::Accounts::findUser(listing.tenantId, listing.objectId).id);
+    }
     QString path = request.value(QStringLiteral("localPath")).toString();
     if (path.startsWith(QLatin1String("file://"))) {
         path = QUrl(path).toLocalFile();

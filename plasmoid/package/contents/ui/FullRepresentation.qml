@@ -18,6 +18,10 @@ PlasmaExtras.Representation {
     readonly property var status: app.status
     readonly property var mainRoot: app.personalRoot ?? (app.roots.length > 0 ? app.roots[0] : null)
 
+    function plain(text) {
+        return String(text ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    }
+
     function relativeTime(iso) {
         const seconds = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000);
         if (seconds < 60) {
@@ -137,6 +141,12 @@ PlasmaExtras.Representation {
             enabled: full.status.signedIn === true
             onTriggered: full.app.launch(["--add"])
         }
+        PlasmaComponents.MenuItem {
+            icon.name: "list-add-user"
+            text: i18n("Add Account…")
+            enabled: full.app.accounts.some(a => a.signedIn)
+            onTriggered: full.app.launch(["--add-account"])
+        }
         PlasmaComponents.MenuSeparator {}
         PlasmaComponents.MenuItem {
             visible: full.status.paused === true && full.status.pausedByUser === true
@@ -182,8 +192,61 @@ PlasmaExtras.Representation {
         spacing: Kirigami.Units.smallSpacing
 
         Repeater {
+            model: full.app.signedOutAccounts
+            delegate: Kirigami.InlineMessage {
+                id: signedOutMessage
+                required property var modelData
+                Layout.fillWidth: true
+                visible: true
+                type: Kirigami.MessageType.Warning
+                // Names are text, never markup (the message shows rich text)
+                text: modelData.organization ? i18nc("%1 is the account, %2 the organization", "%1 (%2) is signed out, so its files are not syncing.", full.plain(modelData.userPrincipalName), full.plain(modelData.organization))
+                                             : i18n("%1 is signed out, so its files are not syncing.", full.plain(modelData.userPrincipalName))
+                actions: Kirigami.Action {
+                    icon.name: "im-user-online"
+                    text: i18n("Sign In")
+                    // The delegate by id: an Action does not see the delegate's properties unqualified
+                    onTriggered: full.app.signIn(signedOutMessage.modelData.id)
+                }
+            }
+        }
+
+        // More than one account: how each one is doing
+        Repeater {
+            model: full.app.syncAccounts.length > 1 ? full.app.syncAccounts.filter(a => a.signedIn) : []
+            delegate: RowLayout {
+                id: accountRow
+                required property var modelData
+                readonly property var own: full.app.roots.filter(r => r.accountId === modelData.id)
+                Layout.fillWidth: true
+                spacing: Kirigami.Units.smallSpacing
+                Kirigami.Icon {
+                    source: accountRow.own.some(r => r.state === "error" || r.state === "halted") ? "data-warning"
+                        : (accountRow.own.some(r => r.state === "syncing") ? "view-refresh" : "data-success")
+                    implicitWidth: Kirigami.Units.iconSizes.small
+                    implicitHeight: Kirigami.Units.iconSizes.small
+                }
+                PlasmaComponents.Label {
+                    Layout.fillWidth: true
+                    elide: Text.ElideRight
+                    font: Kirigami.Theme.smallFont
+                    textFormat: Text.PlainText
+                    text: accountRow.modelData.organization ? i18nc("%1 is the account, %2 the organization", "%1 (%2)", accountRow.modelData.userPrincipalName, accountRow.modelData.organization)
+                                                            : accountRow.modelData.userPrincipalName
+                }
+                PlasmaComponents.Label {
+                    font: Kirigami.Theme.smallFont
+                    opacity: 0.7
+                    text: accountRow.own.some(r => r.state === "error" || r.state === "halted") ? i18n("Problem")
+                        : (accountRow.own.some(r => r.state === "syncing") ? i18n("Syncing…") : i18n("Up to date"))
+                }
+            }
+        }
+
+        Repeater {
             model: full.app.bigDeletes
             delegate: Kirigami.InlineMessage {
+                id: bigDeleteMessage
                 required property var modelData
                 Layout.fillWidth: true
                 visible: true
@@ -193,12 +256,12 @@ PlasmaExtras.Representation {
                     Kirigami.Action {
                         icon.name: "edit-undo"
                         text: i18n("Restore Files")
-                        onTriggered: full.app.command({ command: "resolveBigDelete", id: modelData.id, action: "restore" })
+                        onTriggered: full.app.command({ command: "resolveBigDelete", id: bigDeleteMessage.modelData.id, action: "restore" })
                     },
                     Kirigami.Action {
                         icon.name: "edit-delete"
                         text: i18n("Delete Online Too")
-                        onTriggered: full.app.command({ command: "resolveBigDelete", id: modelData.id, action: "delete" })
+                        onTriggered: full.app.command({ command: "resolveBigDelete", id: bigDeleteMessage.modelData.id, action: "delete" })
                     }
                 ]
             }

@@ -8,5 +8,7 @@ ecm_add_tests(
     statedbtest.cpp
     authtest.cpp
     driveitemtest.cpp
+    accountstest.cpp
+    authlocktest.cpp
     LINK_LIBRARIES graphsynccore Qt6::Test
 )

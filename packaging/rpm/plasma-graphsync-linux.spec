@@ -6,7 +6,7 @@
 # --define "graphsync_client_id <id>" --define "graphsync_tenant_id <id>".
 
 Name:           plasma-graphsync-linux
-Version:        0.7.2
+Version:        0.8.4
 Release:        1%{?dist}
 Summary:        Sync OneDrive for Business and SharePoint libraries on KDE Plasma
 License:        GPL-3.0-or-later AND LGPL-3.0-or-later
@@ -81,6 +81,9 @@ the Sync button in SharePoint. Not affiliated with Microsoft.
 %{_bindir}/plasma-graphsync-linux
 %{_bindir}/graphsyncctl
 %{_bindir}/graphsyncd
+%{_mandir}/man1/graphsyncctl.1*
+%{_mandir}/man1/graphsyncd.1*
+%{_mandir}/man1/plasma-graphsync-linux.1*
 %{_qt6_plugindir}/kf6/kfileitemaction/graphsyncactionplugin.so
 %{_qt6_plugindir}/kf6/overlayicon/graphsyncoverlayplugin.so
 %{_qt6_plugindir}/plasma/kcms/systemsettings/kcm_graphsync.so
@@ -102,6 +105,23 @@ the Sync button in SharePoint. Not affiliated with Microsoft.
 %endif
 
 %changelog
+* Thu Nov 12 2026 nvaert1986 <25772781+nvaert1986@users.noreply.github.com> - 0.8.4-1
+- Fixes from a third code review: no freezes during a sign-in, KWallet
+  from one thread, per-account restarts; see CHANGELOG.md.
+
+* Thu Nov 12 2026 nvaert1986 <25772781+nvaert1986@users.noreply.github.com> - 0.8.3-1
+- Fixes from a second code review (sign-in, accounts); see CHANGELOG.md.
+
+* Wed Nov 11 2026 nvaert1986 <25772781+nvaert1986@users.noreply.github.com> - 0.8.2-1
+- Share window names the file's own organisation; man pages; see CHANGELOG.md.
+
+* Wed Nov 11 2026 nvaert1986 <25772781+nvaert1986@users.noreply.github.com> - 0.8.1-1
+- Fixes and security fixes from testing with two organisations and from a
+  code and security review; see CHANGELOG.md.
+
+* Wed Nov 11 2026 nvaert1986 <25772781+nvaert1986@users.noreply.github.com> - 0.8.0-1
+- More than one account, also of other organisations; see CHANGELOG.md.
+
 * Wed Nov 11 2026 nvaert1986 <25772781+nvaert1986@users.noreply.github.com> - 0.7.2-1
 - Security and reliability fixes; see CHANGELOG.md.
 

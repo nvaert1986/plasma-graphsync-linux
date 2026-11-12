@@ -28,4 +28,13 @@ Result importLegacyInstall(QString *message, int lockTimeoutMs = 60000);
 // True while an install of plasma-onedrive-linux waits to be taken over (cheap: files only)
 bool pending();
 
+// Before 0.8.0 the one account lived in graphsyncrc ([Account]); since then accounts are shared
+// by the apps of the suite in graphaccountsrc, and every location names its account. Moves the
+// old account over (the same user added by another app keeps that id) and hands it the locations.
+// The sign-in itself moves on first use (Auth). Cheap and safe to call every start; run it after
+// importLegacyInstall().
+// lockTimeoutMs: how long to wait for another process doing it (the app does not wait: it picks the
+// result up through the daemon's status)
+void adoptSharedAccounts(int lockTimeoutMs = 10000);
+
 }

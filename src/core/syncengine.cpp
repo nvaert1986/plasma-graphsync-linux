@@ -447,7 +447,8 @@ bool SyncEngine::syncOnce(QString *errorOut)
     m_settings = Config::general();
     m_userRules = IgnoreRules::UserRules(m_settings.excludePatterns, m_settings.skipDotFiles);
     m_noSyncCache.clear();
-    m_selfId = Config::account().objectId;
+    // "Updated by <name>" leaves out our own changes: the user of this root's account
+    m_selfId = m_auth->config().objectId;
     RateLimiter::setLimits(qint64(m_settings.downloadLimitKBps) * 1024, qint64(m_settings.uploadLimitKBps) * 1024);
     m_lowSpace = false;
     m_lowSpaceMessage.clear();

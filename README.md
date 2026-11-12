@@ -6,7 +6,7 @@
 A native KDE Plasma 6 sync client for OneDrive for Business and SharePoint document
 libraries, written in C++ with Qt 6 and KDE Frameworks 6.
 
-**Status:** version 0.7.2, phases 0 to 7 done (the version number follows the last finished
+**Status:** version 0.8.4, phases 0 to 8 done (the version number follows the last finished
 phase).
 
 > **Experimental: use at your own risk.** This is young software that uploads, changes and
@@ -21,19 +21,20 @@ phase).
 
 ## Screenshots
 
-*These screenshots were taken shortly before the display name changed to Graph Sync: title bars
-and the tray still show the earlier name plasma-graphsync-linux. Names in them are examples.*
+*Names in the screenshots are examples.*
 
 | Settings | Share |
 |---|---|
-| ![Settings window with two synced locations](screenshots/settings.png) | ![Share window: invite people, copy a link, who has access](screenshots/share.png) |
+| ![Settings window: the locations of two accounts, grouped per account](screenshots/settings.png) | ![Share window: invite people, copy a link, who has access](screenshots/share.png) |
 | **Tray: recent activity** | **Tray: menu** |
-| ![Tray popup with recent activity](screenshots/tray-popup.png) | ![Tray right-click menu](screenshots/tray-menu.png) |
+| ![Tray popup: the state of each account and recent activity](screenshots/tray-popup.png) | ![Tray right-click menu](screenshots/tray-menu.png) |
 
 ## Features
 
 - Two-way sync of your OneDrive for Business and of SharePoint libraries through Microsoft Graph,
   using your organisation's own app registration
+- More than one account, also of other organisations: each location syncs with its own account,
+  managed in Settings > Accounts; the SharePoint Sync button picks the account the link is for
 - Folders like the Windows client: `OneDrive - <Organisation>` and
   `SharePoint - <Organisation>/<Site> - <Library>`, with entries in Dolphin's Places panel
 - "Add shortcut to My files" folders synced inside the OneDrive folder, like on Windows; `.url`
@@ -64,8 +65,7 @@ and the tray still show the earlier name plasma-graphsync-linux. Names in them a
 - Notifications for conflicts, problems, many deleted files and expired sign-ins
 - English and Dutch
 
-Planned: multiple accounts and tenants (phase 8). Not planned for now: co-authoring of Office
-documents.
+Not planned for now: co-authoring of Office documents.
 
 ## Permissions
 

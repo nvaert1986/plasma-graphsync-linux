@@ -72,7 +72,7 @@ Kirigami.ScrollablePage {
         id: searchTimer
         interval: 400
         onTriggered: {
-            const result = backend.searchPeople(peopleField.text);
+            const result = backend.searchPeople(page.path, peopleField.text);
             page.peopleNotAllowed = result.notAllowed;
             page.suggestions = result.people;
         }

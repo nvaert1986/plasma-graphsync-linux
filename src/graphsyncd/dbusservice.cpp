@@ -37,6 +37,8 @@ RootConfig rootFromJson(const QJsonObject &json)
     root.remoteRootId = json.value(QLatin1String("remoteRootId")).toString();
     root.kind = json.value(QLatin1String("kind")).toString(QStringLiteral("library"));
     root.webUrl = json.value(QLatin1String("webUrl")).toString();
+    // Empty: the current account
+    root.accountId = json.value(QLatin1String("accountId")).toString();
     const QJsonArray excluded = json.value(QLatin1String("excludedPaths")).toArray();
     for (const QJsonValue &path : excluded) {
         root.excludedPaths.append(path.toString());
@@ -148,6 +150,15 @@ QString DBusService::Command(const QString &json)
         ResolveBigDelete(id, request.value(QLatin1String("action")).toString());
     } else if (command == QLatin1String("removeRoot")) {
         return toJson({{QStringLiteral("ok"), RemoveRoot(id)}});
+    } else if (command == QLatin1String("setCurrentAccount")) {
+        return toJson({{QStringLiteral("ok"), m_daemon->setCurrentAccount(id)}});
+    } else if (command == QLatin1String("signOutAccount")) {
+        m_daemon->signOut(id);
+    } else if (command == QLatin1String("removeAccount")) {
+        m_daemon->removeAccount(id);
+    } else if (command == QLatin1String("reloadAccount")) {
+        // One account signed in (the app, graphsyncctl): only its locations restart
+        m_daemon->reloadOneAccount(id);
     } else if (command == QLatin1String("reloadSettings")) {
         m_daemon->reloadSettings();
     } else if (command == QLatin1String("hydrate")) {
@@ -174,7 +185,8 @@ QString DBusService::Command(const QString &json)
         // The tray applet starts the app (setup, sign-in, choose folders) through us. Only the app's
         // normal options pass: not the testing ones (--screenshot writes a file anywhere), not
         // arbitrary arguments from whoever calls the bus
-        static const QStringList flags{QStringLiteral("--setup"), QStringLiteral("--add"), QStringLiteral("--sign-in"), QStringLiteral("--add-personal")};
+        static const QStringList flags{QStringLiteral("--setup"), QStringLiteral("--add"), QStringLiteral("--sign-in"), QStringLiteral("--add-personal"),
+                                       QStringLiteral("--add-account")};
         static const QStringList withValue{QStringLiteral("--choose-folders"), QStringLiteral("--copy-link"), QStringLiteral("--view-online"),
                                            QStringLiteral("--share"), QStringLiteral("--versions")};
         QStringList arguments;

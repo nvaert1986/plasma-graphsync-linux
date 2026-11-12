@@ -20,6 +20,21 @@ private Q_SLOTS:
         QVERIFY(!Auth::isGuid(QStringLiteral("contoso.onmicrosoft.com")));
     }
 
+    void adminConsent()
+    {
+        const QString tenant = QStringLiteral("11111111-2222-3333-4444-555555555555");
+        const QString client = QStringLiteral("0a1b2c3d-4e5f-6789-abcd-ef0123456789");
+        QCOMPARE(Auth::adminConsentUrl(tenant, client).toString(), QStringLiteral("https://login.microsoftonline.com/%1/adminconsent?client_id=%2").arg(tenant, client));
+        QVERIFY(Auth::needsAdminConsent(QStringLiteral("AADSTS65001: The user or administrator has not consented to use the application")));
+        QVERIFY(Auth::needsAdminConsent(QStringLiteral("AADSTS90094: Admin consent is required")));
+        QVERIFY(Auth::needsAdminConsent(QStringLiteral("AADSTS700016: Application with identifier 'x' was not found in the directory 'y'")));
+        QVERIFY(Auth::needsAdminConsent(QStringLiteral("consent_required: ...")));
+        // Not assigned to the app, or a dead refresh token: no approval page
+        QVERIFY(!Auth::needsAdminConsent(QStringLiteral("AADSTS50105: The signed in user is not assigned to a role for the application")));
+        QVERIFY(!Auth::needsAdminConsent(QStringLiteral("AADSTS7000160: something else")));
+        QVERIFY(!Auth::needsAdminConsent(QStringLiteral("sign-in expired: AADSTS700082: The refresh token has expired")));
+    }
+
     void parseSetupText_data()
     {
         QTest::addColumn<QString>("text");

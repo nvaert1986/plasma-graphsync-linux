@@ -16,14 +16,19 @@
 #include <QCoreApplication>
 #include <QDBusInterface>
 #include <QDBusReply>
+#include <QDir>
 #include <QElapsedTimer>
 #include <QFileInfo>
 #include <QJsonArray>
 #include <QJsonDocument>
+#include <QJsonObject>
 #include <QProcess>
 #include <QStandardPaths>
 #include <QTextStream>
 #include <QUrl>
+
+#include <algorithm>
+#include <map>
 
 using namespace GraphSync;
 
@@ -75,13 +80,23 @@ int callDaemon(const QString &method, const QVariantList &arguments = {})
 
 const char usage[] = R"(Commands:
   configure --client-id ID --tenant-id ID   store the app registration
-  login | logout | whoami                   sign in (browser), sign out, show account
+  login [device] | logout | whoami          sign in (browser or code), sign out, show the current account
+  accounts                                  list the accounts and their locations (* = current)
+  add-account EMAIL [device] [--client-id ID]   sign in another account (another organisation or user);
+                                            it becomes the current account
+  use-account ACCOUNT                       make an account the current one (new locations, app)
+  approval-link EMAIL|DOMAIN [--client-id ID]   the page where an organisation's administrator approves
+                                            the app registration
   drives --site-url URL                     list document libraries of a SharePoint site
   add-root --name N --local PATH --drive ID [--remote-root ITEM]
+  add-personal [--local PATH]               sync the current account's own OneDrive
   roots | remove-root ROOT                  list or remove sync roots
   sync ROOT [--download-only]               run one sync cycle in this process
   status | activity | sync-now | pause [MINUTES] | resume   talk to the running graphsyncd
   migrate                                   take over an install of plasma-onedrive-linux (run once at login)
+  item | link | permissions | unshare | invite | versions | get-version | restore-version | download |
+  add-shortcut PATH ...                     work on a synced file with its location's account
+  people TEXT                               name suggestions; details in graphsyncctl(1)
 )";
 }
 
@@ -89,6 +104,8 @@ int main(int argc, char **argv)
 {
     QCoreApplication app(argc, argv);
     QCoreApplication::setApplicationName(QStringLiteral("graphsyncctl"));
+    // Accounts are shared by the suite; the app registration per account is this app's own
+    GraphCore::Accounts::setApplication(QStringLiteral("plasma-graphsync-linux"));
     QCoreApplication::setApplicationVersion(QStringLiteral(GRAPHSYNC_VERSION));
 
     QCommandLineParser parser;
@@ -118,6 +135,9 @@ int main(int argc, char **argv)
     // write would otherwise start a new setup next to it
     QString migration;
     const Migration::Result imported = Migration::importLegacyInstall(&migration);
+    if (imported != Migration::Result::Busy) {
+        Migration::adoptSharedAccounts();
+    }
     if (command == QLatin1String("migrate")) {
         // Started once per user at login (autostart entry): starts the sync service when it took
         // over, and then switches its own autostart off for this user. Busy or failed: the entry
@@ -161,20 +181,100 @@ int main(int argc, char **argv)
         if (!Auth::isGuid(clientId)) {
             return fail(QStringLiteral("--client-id must look like 00000000-0000-0000-0000-000000000000"));
         }
-        // The same registration in another spelling keeps its sign-in (moved to the new key)
-        const AuthConfig stored = Config::auth();
-        const AuthConfig wanted = Auth::normalized({clientId, tenantId});
-        if (Auth::normalized(stored).clientId == wanted.clientId && Auth::normalized(stored).tenantId == wanted.tenantId
-            && Auth::keychainKeyFor(stored) != Auth::keychainKeyFor(wanted)) {
-            QString moveError;
-            Auth::moveToken(stored, wanted, &moveError);
-        }
-        Config::setAuth(wanted);
-        out() << "stored in ~/.config/graphsyncrc (tenant " << tenantId << ")" << Qt::endl;
+        // For signing in new accounts; an account keeps the registration it signed in with (IDs are
+        // stored in one spelling, so there is nothing to move)
+        Config::setAuth(Auth::normalized({clientId, tenantId, {}}));
+        out() << "stored in ~/.config/graphsyncrc (tenant " << tenantId << ") for new sign-ins; signed-in accounts keep their own"
+              << Qt::endl;
         return 0;
     }
 
-    Auth auth(Config::auth());
+    if (command == QLatin1String("accounts")) {
+        const QString current = Config::account().id;
+        const QList<RootConfig> roots = Config::roots();
+        const QList<AccountInfo> accounts = GraphCore::Accounts::all();
+        for (const AccountInfo &account : accounts) {
+            const auto locations = std::count_if(roots.cbegin(), roots.cend(), [&account](const RootConfig &root) {
+                return root.accountId == account.id && root.kind != QLatin1String("shortcut");
+            });
+            out() << (account.id == current ? "* " : "  ") << account.id << "  " << account.userPrincipalName << "  (" << account.organization << ")  "
+                  << locations << " location(s)" << (account.clientId.isEmpty() ? QString() : QStringLiteral("  client ") + account.clientId) << Qt::endl;
+        }
+        const auto orphans = std::count_if(roots.cbegin(), roots.cend(), [](const RootConfig &root) {
+            return root.accountId.isEmpty();
+        });
+        if (orphans > 0) {
+            out() << "  " << orphans << " location(s) without an account: the next sign-in claims them" << Qt::endl;
+        }
+        return 0;
+    }
+    if (command == QLatin1String("use-account")) {
+        const AccountInfo account = GraphCore::Accounts::find(args.value(1));
+        if (!account.isValid()) {
+            return fail(QStringLiteral("no account ") + args.value(1) + QStringLiteral(" (see graphsyncctl accounts)"));
+        }
+        Config::setCurrentAccountId(account.id);
+        // Only the pointer changes: no restart of the running locations
+        QDBusInterface(QStringLiteral("io.github.nvaert1986.GraphSync"), QStringLiteral("/GraphSync"), QStringLiteral("io.github.nvaert1986.GraphSync"))
+            .call(QStringLiteral("Command"), QStringLiteral(R"({"command":"setCurrentAccount","id":"%1"})").arg(account.id));
+        out() << "current account: " << account.userPrincipalName << Qt::endl;
+        return 0;
+    }
+    if (command == QLatin1String("approval-link") || command == QLatin1String("add-account")) {
+        const QString address = args.value(1).trimmed();
+        if (address.isEmpty()) {
+            return fail(command + QStringLiteral(" needs a work e-mail address or domain"));
+        }
+        const QString defaultClient = GraphCore::Accounts::defaultClientId().isEmpty() ? Config::auth().clientId : GraphCore::Accounts::defaultClientId();
+        const QString client = parser.isSet(clientIdOpt) ? parser.value(clientIdOpt).trimmed().toLower() : defaultClient;
+        if (!Auth::isGuid(client)) {
+            return fail(QStringLiteral("no app registration: pass --client-id 00000000-0000-0000-0000-000000000000"));
+        }
+        bool offline = false;
+        const QString tenant = Auth::resolveTenant(address, &offline);
+        if (tenant.isEmpty()) {
+            return fail(offline ? QStringLiteral("no connection to Microsoft 365") : QStringLiteral("no Microsoft 365 organization found for ") + address);
+        }
+        if (command == QLatin1String("approval-link")) {
+            out() << Auth::adminConsentUrl(tenant, client).toString() << Qt::endl;
+            return 0;
+        }
+        Auth added({client, tenant, {}});
+        QString error;
+        bool ok = false;
+        if (!Auth::browserLoginAvailable() || args.value(2) == QLatin1String("device")) {
+            ok = added.deviceCodeLogin(
+                [](const QString &code, const QString &page) {
+                    out() << "Open " << page << " on any device and enter the code " << code << Qt::endl;
+                },
+                nullptr,
+                &error);
+        } else {
+            out() << "Opening the browser for sign-in..." << Qt::endl;
+            ok = added.interactiveLogin(&error, address.contains(QLatin1Char('@')) ? address : QString());
+        }
+        if (!ok) {
+            if (Auth::needsAdminConsent(error)) {
+                out() << "The organization has not approved the app yet. Its administrator opens this page once:" << Qt::endl
+                      << Auth::adminConsentUrl(tenant, client).toString() << Qt::endl;
+            }
+            return fail(error);
+        }
+        GraphClient graph(&added);
+        const QJsonArray orgs = graph.get(QStringLiteral("/organization?$select=displayName")).json().value(QLatin1String("value")).toArray();
+        if (!orgs.isEmpty()) {
+            Config::setAccountOrganization(Config::account().id, orgs.at(0).toObject().value(QLatin1String("displayName")).toString());
+        }
+        const AccountInfo account = Config::account();
+        // Only this account's locations restart in the running daemon
+        QDBusInterface(QStringLiteral("io.github.nvaert1986.GraphSync"), QStringLiteral("/GraphSync"), QStringLiteral("io.github.nvaert1986.GraphSync"))
+            .call(QStringLiteral("Command"), QStringLiteral(R"({"command":"reloadAccount","id":"%1"})").arg(account.id));
+        out() << "Added " << account.displayName << " <" << account.userPrincipalName << "> (" << account.organization << ") as account " << account.id
+              << "; it is now the current account" << Qt::endl;
+        return 0;
+    }
+
+    Auth auth(Config::currentAuth());
     if (!auth.isConfigured() && command != QLatin1String("roots")) {
         return fail(QStringLiteral("run graphsyncctl configure first"));
     }
@@ -201,16 +301,25 @@ int main(int argc, char **argv)
         }
         GraphClient graph(&auth);
         const QJsonArray orgs = graph.get(QStringLiteral("/organization?$select=displayName")).json().value(QLatin1String("value")).toArray();
-        AccountInfo account = Config::account();
         if (!orgs.isEmpty()) {
-            account.organization = orgs.at(0).toObject().value(QLatin1String("displayName")).toString();
-            Config::setAccount(account);
+            Config::setAccountOrganization(Config::account().id, orgs.at(0).toObject().value(QLatin1String("displayName")).toString());
         }
+        const AccountInfo account = Config::account();
         out() << "Signed in as " << account.displayName << " <" << account.userPrincipalName << "> (" << account.organization << ")" << Qt::endl;
+        // A running daemon starts this account's locations
+        QDBusInterface(QStringLiteral("io.github.nvaert1986.GraphSync"), QStringLiteral("/GraphSync"), QStringLiteral("io.github.nvaert1986.GraphSync"))
+            .call(QStringLiteral("Command"), QStringLiteral(R"({"command":"reloadAccount","id":"%1"})").arg(account.id));
         return 0;
     }
     if (command == QLatin1String("logout")) {
-        auth.logout();
+        // Through the running daemon: it stops the account's locations (they would keep syncing
+        // with the token in its memory) and picks another current account
+        const QString accountId = Config::account().id;
+        QDBusInterface daemon(QStringLiteral("io.github.nvaert1986.GraphSync"), QStringLiteral("/GraphSync"), QStringLiteral("io.github.nvaert1986.GraphSync"));
+        const QJsonObject request{{QStringLiteral("command"), QStringLiteral("signOutAccount")}, {QStringLiteral("id"), accountId}};
+        if (accountId.isEmpty() || !daemon.isValid() || !daemon.call(QStringLiteral("Command"), QString::fromUtf8(QJsonDocument(request).toJson(QJsonDocument::Compact))).errorMessage().isEmpty()) {
+            auth.logout();
+        }
         out() << "signed out; the refresh token was removed from the keychain" << Qt::endl;
         return 0;
     }
@@ -261,8 +370,41 @@ int main(int argc, char **argv)
         root.localPath = parser.value(localOpt);
         root.driveId = parser.value(driveOpt);
         root.remoteRootId = parser.value(remoteRootOpt);
+        // Syncs with the current account
+        root.accountId = Config::account().id;
         const RootConfig stored = Config::addRoot(root);
         out() << "added root " << stored.id << " (" << stored.name << ") -> " << stored.localPath << Qt::endl;
+        return 0;
+    }
+    if (command == QLatin1String("add-personal")) {
+        // The current account's own OneDrive, as the app's "Sync OneDrive - <Organisation>" does
+        const AccountInfo account = Config::account();
+        if (!account.isValid()) {
+            return fail(QStringLiteral("not signed in (graphsyncctl login or add-account)"));
+        }
+        GraphClient graph(&auth);
+        const GraphResponse drive = graph.get(QStringLiteral("/me/drive?$select=id,webUrl"));
+        if (!drive.ok()) {
+            return fail(drive.describe());
+        }
+        QString label = Config::organizationLabel(account);
+        label.replace(QLatin1Char('/'), QLatin1Char('-'));
+        const QJsonObject root{{QStringLiteral("name"), QString(QStringLiteral("OneDrive - ") + account.organization)},
+                               {QStringLiteral("localPath"),
+                                parser.isSet(localOpt) ? QFileInfo(parser.value(localOpt)).absoluteFilePath()
+                                                       : QDir(Config::general().baseFolder).filePath(QString(QStringLiteral("OneDrive - ") + label))},
+                               {QStringLiteral("driveId"), drive.json().value(QLatin1String("id")).toString()},
+                               {QStringLiteral("webUrl"), drive.json().value(QLatin1String("webUrl")).toString()},
+                               {QStringLiteral("kind"), QStringLiteral("personal")},
+                               {QStringLiteral("accountId"), account.id}};
+        // Through the daemon: it checks the folder, adds the Places entry and starts at once
+        QDBusInterface daemon(QStringLiteral("io.github.nvaert1986.GraphSync"), QStringLiteral("/GraphSync"), QStringLiteral("io.github.nvaert1986.GraphSync"));
+        const QDBusReply<QString> added = daemon.call(QStringLiteral("AddRoot"), QString::fromUtf8(QJsonDocument(root).toJson(QJsonDocument::Compact)));
+        if (!added.isValid() || added.value().isEmpty()) {
+            return fail(added.isValid() ? QStringLiteral("the sync service refused ") + root.value(QLatin1String("localPath")).toString()
+                                        : QStringLiteral("graphsyncd is not running"));
+        }
+        out() << "added root " << added.value() << " -> " << root.value(QLatin1String("localPath")).toString() << Qt::endl;
         return 0;
     }
     if (command == QLatin1String("roots")) {
@@ -293,7 +435,14 @@ int main(int argc, char **argv)
         if (!root) {
             return fail(QStringLiteral("no such root"));
         }
-        SyncEngine engine(*root, &auth);
+        // With the location's own account: another account's sign-in would upload as that user
+        // and take items it cannot see for deleted
+        const AccountInfo owner = GraphCore::Accounts::find(root->accountId);
+        if (!owner.isValid()) {
+            return fail(QStringLiteral("this location has no account on this computer (graphsyncctl accounts)"));
+        }
+        Auth ownerAuth(Config::authFor(owner));
+        SyncEngine engine(*root, &ownerAuth);
         if (parser.isSet(downloadOnlyOpt)) {
             engine.setMode(SyncEngine::Mode::DownloadOnly);
         }
@@ -355,6 +504,23 @@ int main(int argc, char **argv)
     if (itemCommands.contains(command) || command == QLatin1String("people")) {
         GraphClient graph(&auth);
         ItemService service(&graph);
+        // A path in a location of another account goes through that account's sign-in
+        std::map<QString, std::pair<std::unique_ptr<Auth>, std::unique_ptr<GraphClient>>> others;
+        service.setGraphProvider([&others, &graph](const QString &accountId) -> GraphClient * {
+            const AccountInfo account = GraphCore::Accounts::find(accountId);
+            if (!account.isValid()) {
+                return nullptr;
+            }
+            if (account.id == Config::account().id) {
+                return &graph;
+            }
+            auto &client = others[accountId];
+            if (!client.first) {
+                client.first = std::make_unique<Auth>(Config::authFor(account));
+                client.second = std::make_unique<GraphClient>(client.first.get());
+            }
+            return client.second.get();
+        });
         QString error;
         auto print = [](const QVariant &value) {
             out() << QJsonDocument::fromVariant(value).toJson(QJsonDocument::Indented);
@@ -362,7 +528,7 @@ int main(int argc, char **argv)
         };
         if (command == QLatin1String("people")) {
             bool notAllowed = false;
-            const QVariantList people = service.searchPeople(args.value(1), &notAllowed, &error);
+            const QVariantList people = service.searchPeople(args.value(1), Config::account().id, &notAllowed, &error);
             if (notAllowed) {
                 return fail(QStringLiteral("not allowed: the app registration lacks People.Read / User.ReadBasic.All"));
             }
@@ -381,6 +547,7 @@ int main(int argc, char **argv)
                                      {QStringLiteral("name"), item.name},
                                      {QStringLiteral("webUrl"), item.webUrl},
                                      {QStringLiteral("permissionsUrl"), item.permissionsUrl},
+                                     {QStringLiteral("accountId"), item.accountId},
                                      {QStringLiteral("isFolder"), item.isFolder}});
         }
         if (command == QLatin1String("link")) {

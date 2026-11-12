@@ -8,9 +8,19 @@
 
 K_PLUGIN_CLASS_WITH_JSON(KcmGraphSync, "kcm_graphsync.json")
 
+namespace
+{
+GraphSync::Backend *makeBackend(QObject *parent)
+{
+    // Accounts are shared by the suite; the app registration per account is this app's own
+    GraphCore::Accounts::setApplication(QStringLiteral("plasma-graphsync-linux"));
+    return new GraphSync::Backend(parent);
+}
+}
+
 KcmGraphSync::KcmGraphSync(QObject *parent, const KPluginMetaData &data)
     : KQuickConfigModule(parent, data)
-    , m_backend(new GraphSync::Backend(this))
+    , m_backend(makeBackend(this))
 {
     setButtons(NoAdditionalButton);
 }

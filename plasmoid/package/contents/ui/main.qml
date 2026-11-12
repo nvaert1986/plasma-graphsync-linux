@@ -15,7 +15,13 @@ PlasmoidItem {
     property var activity: []
 
     readonly property var roots: status.roots ?? []
-    readonly property var personalRoot: roots.find(r => r.kind === "personal") ?? null
+    // The current account's OneDrive (the header's folder button and storage)
+    readonly property var personalRoot: roots.find(r => r.kind === "personal" && r.accountId === status.account?.id) ?? roots.find(r => r.kind === "personal") ?? null
+    readonly property var accounts: status.accounts ?? []
+    // Accounts with locations here whose sign-in is gone: each gets its own "Sign in again"
+    readonly property var signedOutAccounts: accounts.filter(a => !a.signedIn && a.locations > 0)
+    // Accounts this computer syncs with; with more than one, the popup shows each one's state
+    readonly property var syncAccounts: accounts.filter(a => a.signedIn || a.locations > 0)
     readonly property bool syncing: roots.some(r => r.state === "syncing")
     readonly property var problemRoots: roots.filter(r => r.state === "error" || r.state === "halted" || (r.persistentErrors ?? []).length > 0)
     readonly property var bigDeletes: roots.filter(r => r.pendingBigDelete !== undefined)
@@ -23,7 +29,8 @@ PlasmoidItem {
         if (!daemonRunning) {
             return "offline";
         }
-        if (status.signedIn === false) {
+        // Signed out everywhere; one signed-out account among others is a problem of that account
+        if (status.signedIn === false && !accounts.some(a => a.signedIn)) {
             return "signedOut";
         }
         if (status.paused) {
@@ -33,7 +40,7 @@ PlasmoidItem {
         if (roots.length > 0 && roots.every(r => r.state === "offline")) {
             return "offline";
         }
-        if (bigDeletes.length > 0 || problemRoots.length > 0) {
+        if (bigDeletes.length > 0 || problemRoots.length > 0 || signedOutAccounts.length > 0) {
             return "error";
         }
         return syncing ? "syncing" : "idle";
@@ -50,7 +57,13 @@ PlasmoidItem {
             }
             return status.pausedUntil ? i18n("Paused until %1", Qt.formatTime(new Date(status.pausedUntil), Qt.locale().timeFormat(Locale.ShortFormat))) : i18n("Syncing is paused");
         case "error":
-            return bigDeletes.length > 0 ? i18n("Waiting for your decision") : i18np("1 library has a problem", "%1 libraries have problems", problemRoots.length);
+            if (bigDeletes.length > 0) {
+                return i18n("Waiting for your decision");
+            }
+            if (problemRoots.length === 0) {
+                return i18np("1 account is signed out", "%1 accounts are signed out", signedOutAccounts.length);
+            }
+            return i18np("1 library has a problem", "%1 libraries have problems", problemRoots.length);
         case "syncing":
             return i18n("Syncing…");
         default:
@@ -98,6 +111,11 @@ PlasmoidItem {
     // A file:// URL for a local path; "#" and "%" in names must not cut or change the path
     function fileUrl(path) {
         return "file://" + path.split("/").map(encodeURIComponent).join("/");
+    }
+
+    // Signs in a signed-out account: the app signs in the current account, so make it that one
+    function signIn(accountId) {
+        command({ command: "setCurrentAccount", id: accountId }, () => launch(["--sign-in"]));
     }
 
     function launch(args) {

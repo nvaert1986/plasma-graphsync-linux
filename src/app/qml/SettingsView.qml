@@ -20,9 +20,46 @@ Item {
 
     readonly property var status: page.api.status
     readonly property var roots: status.roots ?? []
-    readonly property var personalRoot: roots.find(r => r.kind === "personal") ?? null
+    readonly property var accounts: status.accounts ?? []
+    // Accounts this computer syncs with (or is signed in to); the others in graphaccountsrc were
+    // added by another app of the suite
+    readonly property var syncAccounts: accounts.filter(a => a.signedIn || a.locations > 0 || a.current)
+    readonly property var otherAccounts: accounts.filter(a => !a.signedIn && a.locations === 0 && !a.current)
+    // With more than one account, locations are listed per account under its name
+    readonly property bool grouped: syncAccounts.length > 1
+    readonly property var rootEntries: {
+        if (!grouped) {
+            return roots.map(r => ({ root: r, header: null }));
+        }
+        let entries = [];
+        for (const account of syncAccounts) {
+            const own = roots.filter(r => r.accountId === account.id);
+            if (own.length === 0) {
+                entries.push({ root: null, header: account });
+            }
+            own.forEach((r, i) => entries.push({ root: r, header: i === 0 ? account : null }));
+        }
+        // Set up while signed out: the next sign-in claims them
+        const orphans = roots.filter(r => !accounts.some(a => a.id === r.accountId));
+        orphans.forEach((r, i) => entries.push({ root: r, header: i === 0 ? { id: "", userPrincipalName: i18n("Waiting for an account"), organization: "", signedIn: false } : null }));
+        return entries;
+    }
     property int section: 0
     property var rootToRemove: null
+    property var accountToChange: null
+
+    // Names from an organisation's directory (its name set by its administrator) are text, never
+    // markup: for texts that cannot be set to plain text
+    function plain(text) {
+        return String(text ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    }
+
+    function accountTitle(account) {
+        if (!account) {
+            return "";
+        }
+        return account.organization ? i18nc("%1 is the account, %2 the organization", "%1 (%2)", account.userPrincipalName, account.organization) : account.userPrincipalName;
+    }
 
     function relativeTime(iso) {
         if (!iso) {
@@ -45,7 +82,7 @@ Item {
         if (!page.api.daemonRunning) {
             return i18n("The sync service is not running");
         }
-        if (status.signedIn === false) {
+        if (status.signedIn === false && !accounts.some(a => a.signedIn)) {
             return i18n("Not signed in");
         }
         if (status.paused) {
@@ -54,7 +91,7 @@ Item {
         if (roots.length > 0 && roots.every(r => r.state === "offline")) {
             return i18n("Offline: syncing continues when the network is back");
         }
-        if (roots.some(r => r.state === "error" || r.state === "halted")) {
+        if (roots.some(r => r.state === "error" || r.state === "halted" || r.state === "signedOut")) {
             return i18n("Some locations have a problem");
         }
         if (roots.some(r => r.state === "syncing")) {
@@ -75,6 +112,8 @@ Item {
             return { icon: "data-warning", text: root.pendingBigDelete ? i18n("Many files were removed here; waiting for your decision") : (root.lastErrors ?? [""])[0], problem: true };
         case "halted":
             return { icon: "data-error", text: root.haltReason ?? i18n("Stopped"), problem: true };
+        case "signedOut":
+            return { icon: "im-user-offline", text: i18n("Signed out: sign in to sync this location again"), problem: true };
         default:
             return { icon: "data-success", text: root.lastSync ? i18n("Up to date, last synced %1", relativeTime(root.lastSync)) : i18n("Waiting for the first sync"), problem: false };
         }
@@ -105,14 +144,16 @@ Item {
     Kirigami.PromptDialog {
         id: signOutDialog
         title: i18n("Sign Out of This Computer?")
-        subtitle: i18n("Syncing stops until you sign in again. Your local files are kept.")
+        subtitle: page.accountToChange && page.syncAccounts.length > 1
+            ? i18n("The locations of %1 stop syncing until you sign in again. Your local files are kept.", page.accountToChange.userPrincipalName)
+            : i18n("Syncing stops until you sign in again. Your local files are kept.")
         standardButtons: Kirigami.Dialog.NoButton
         customFooterActions: [
             Kirigami.Action {
                 icon.name: "system-log-out"
                 text: i18n("Sign Out")
                 onTriggered: {
-                    page.api.signOut();
+                    page.api.signOutAccount(page.accountToChange?.id ?? page.status.account?.id ?? "");
                     signOutDialog.close();
                 }
             },
@@ -120,6 +161,28 @@ Item {
                 icon.name: "dialog-cancel"
                 text: i18n("Cancel")
                 onTriggered: signOutDialog.close()
+            }
+        ]
+    }
+
+    Kirigami.PromptDialog {
+        id: removeAccountDialog
+        title: i18n("Remove Account?")
+        subtitle: page.accountToChange ? i18n("%1 is signed out and its locations stop syncing. The files stay online, and the local copies are kept as ordinary files.", page.accountToChange.userPrincipalName) : ""
+        standardButtons: Kirigami.Dialog.NoButton
+        customFooterActions: [
+            Kirigami.Action {
+                icon.name: "list-remove-user"
+                text: i18n("Remove Account")
+                onTriggered: {
+                    page.api.removeAccount(page.accountToChange.id);
+                    removeAccountDialog.close();
+                }
+            },
+            Kirigami.Action {
+                icon.name: "dialog-cancel"
+                text: i18n("Cancel")
+                onTriggered: removeAccountDialog.close()
             }
         ]
     }
@@ -138,7 +201,7 @@ Item {
                 id: navigation
                 model: [
                     { icon: "folder-sync", text: i18n("Sync") },
-                    { icon: "im-user", text: i18n("Account") },
+                    { icon: "im-user", text: i18n("Accounts") },
                     { icon: "preferences-desktop-notification", text: i18n("Notifications") },
                     { icon: "configure", text: i18n("Advanced") },
                     { icon: "help-about", text: i18n("About") }
@@ -275,7 +338,8 @@ Item {
                                 text: i18n("Locations that are syncing")
                             }
                             QQC2.Button {
-                                visible: page.roots.length > 0
+                                // Grouped: every account has its own button
+                                visible: page.roots.length > 0 && !page.grouped
                                 enabled: page.api.signedIn
                                 icon.name: "list-add"
                                 text: i18n("Add a Library…")
@@ -298,120 +362,175 @@ Item {
                         }
 
                         Repeater {
-                            model: page.roots
-                            delegate: Kirigami.AbstractCard {
-                                id: card
+                            model: page.rootEntries
+                            delegate: ColumnLayout {
+                                id: entry
                                 required property var modelData
-                                readonly property var rootStatus: page.rootState(modelData)
-                                // "Add shortcut to My files": managed online, so no Choose Folders or Stop Syncing
-                                readonly property bool isShortcut: modelData.kind === "shortcut"
                                 Layout.fillWidth: true
+                                spacing: Kirigami.Units.smallSpacing
 
-                                contentItem: RowLayout {
-                                    spacing: Kirigami.Units.largeSpacing
+                                // The account above its locations
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    Layout.topMargin: Kirigami.Units.largeSpacing
+                                    visible: entry.modelData.header !== null
                                     Kirigami.Icon {
-                                        Layout.alignment: Qt.AlignTop
-                                        source: card.modelData.kind === "library" || card.modelData.kind === "folder" ? "folder-network" : "folder-cloud"
-                                        implicitWidth: Kirigami.Units.iconSizes.large
-                                        implicitHeight: Kirigami.Units.iconSizes.large
+                                        source: entry.modelData.header?.signedIn ? "im-user" : "im-user-offline"
+                                        implicitWidth: Kirigami.Units.iconSizes.smallMedium
+                                        implicitHeight: Kirigami.Units.iconSizes.smallMedium
                                     }
-                                    ColumnLayout {
+                                    QQC2.Label {
                                         Layout.fillWidth: true
-                                        spacing: Kirigami.Units.smallSpacing
-                                        Kirigami.Heading {
-                                            Layout.fillWidth: true
-                                            level: 4
-                                            elide: Text.ElideRight
-                                            text: card.modelData.name
+                                        elide: Text.ElideRight
+                                        font.bold: true
+                                        textFormat: Text.PlainText
+                                        text: page.accountTitle(entry.modelData.header)
+                                    }
+                                    QQC2.Button {
+                                        visible: entry.modelData.header?.signedIn === true
+                                        flat: true
+                                        icon.name: "list-add"
+                                        text: i18n("Add a Library…")
+                                        onClicked: {
+                                            page.api.setCurrentAccount(entry.modelData.header.id);
+                                            page.openRequested("add", "");
                                         }
-                                        QQC2.Label {
-                                            Layout.fillWidth: true
-                                            visible: card.isShortcut
-                                            elide: Text.ElideRight
-                                            text: i18nc("%1 is a sync location such as OneDrive - Contoso", "Shortcut in %1", page.roots.find(r => r.id === card.modelData.parentRootId)?.name ?? "")
+                                    }
+                                    QQC2.Button {
+                                        visible: entry.modelData.header !== null && entry.modelData.header.signedIn === false && entry.modelData.header.id !== ""
+                                        icon.name: "im-user-online"
+                                        text: i18n("Sign In…")
+                                        onClicked: {
+                                            page.api.setCurrentAccount(entry.modelData.header.id);
+                                            page.openRequested("signIn", "");
                                         }
-                                        QQC2.Label {
-                                            Layout.fillWidth: true
-                                            elide: Text.ElideMiddle
-                                            opacity: 0.7
-                                            text: card.modelData.localPath
+                                    }
+                                }
+                                QQC2.Label {
+                                    Layout.fillWidth: true
+                                    visible: entry.modelData.header !== null && entry.modelData.root === null
+                                    opacity: 0.7
+                                    text: i18n("No locations of this account are synced.")
+                                }
+                                Kirigami.AbstractCard {
+                                    id: card
+                                    readonly property var modelData: entry.modelData.root ?? ({})
+                                    readonly property var rootStatus: page.rootState(modelData)
+                                    // "Add shortcut to My files": managed online, so no Choose Folders or Stop Syncing
+                                    readonly property bool isShortcut: modelData.kind === "shortcut"
+                                    Layout.fillWidth: true
+                                    visible: entry.modelData.root !== null
+
+                                    contentItem: RowLayout {
+                                        spacing: Kirigami.Units.largeSpacing
+                                        Kirigami.Icon {
+                                            Layout.alignment: Qt.AlignTop
+                                            source: card.modelData.kind === "library" || card.modelData.kind === "folder" ? "folder-network" : "folder-cloud"
+                                            implicitWidth: Kirigami.Units.iconSizes.large
+                                            implicitHeight: Kirigami.Units.iconSizes.large
                                         }
-                                        RowLayout {
+                                        ColumnLayout {
                                             Layout.fillWidth: true
                                             spacing: Kirigami.Units.smallSpacing
-                                            Kirigami.Icon {
-                                                source: card.rootStatus.icon
-                                                implicitWidth: Kirigami.Units.iconSizes.small
-                                                implicitHeight: Kirigami.Units.iconSizes.small
+                                            Kirigami.Heading {
+                                                Layout.fillWidth: true
+                                                level: 4
+                                                elide: Text.ElideRight
+                                                text: card.modelData.name
                                             }
                                             QQC2.Label {
                                                 Layout.fillWidth: true
+                                                visible: card.isShortcut
+                                                elide: Text.ElideRight
+                                                text: i18nc("%1 is a sync location such as OneDrive - Contoso", "Shortcut in %1", page.roots.find(r => r.id === card.modelData.parentRootId)?.name ?? "")
+                                            }
+                                            QQC2.Label {
+                                                Layout.fillWidth: true
+                                                elide: Text.ElideMiddle
+                                                opacity: 0.7
+                                                text: card.modelData.localPath
+                                            }
+                                            RowLayout {
+                                                Layout.fillWidth: true
+                                                spacing: Kirigami.Units.smallSpacing
+                                                Kirigami.Icon {
+                                                    source: card.rootStatus.icon
+                                                    implicitWidth: Kirigami.Units.iconSizes.small
+                                                    implicitHeight: Kirigami.Units.iconSizes.small
+                                                }
+                                                QQC2.Label {
+                                                    Layout.fillWidth: true
+                                                    wrapMode: Text.Wrap
+                                                    color: card.rootStatus.problem ? Kirigami.Theme.negativeTextColor : Kirigami.Theme.textColor
+                                                    text: card.rootStatus.text
+                                                }
+                                            }
+                                            QQC2.Label {
+                                                Layout.fillWidth: true
+                                                // Not counted while its account is signed out
+                                                visible: card.modelData.state !== "signedOut"
                                                 wrapMode: Text.Wrap
-                                                color: card.rootStatus.problem ? Kirigami.Theme.negativeTextColor : Kirigami.Theme.textColor
-                                                text: card.rootStatus.text
-                                            }
-                                        }
-                                        QQC2.Label {
-                                            Layout.fillWidth: true
-                                            wrapMode: Text.Wrap
-                                            opacity: 0.7
-                                            text: {
-                                                const parts = [i18np("1 item", "%1 items", card.modelData.items ?? 0)];
-                                                const excluded = (card.modelData.excludedPaths ?? []).length;
-                                                if (excluded > 0) {
-                                                    parts.push(i18np("1 folder not synced", "%1 folders not synced", excluded));
+                                                opacity: 0.7
+                                                text: {
+                                                    const parts = [i18np("1 item", "%1 items", card.modelData.items ?? 0)];
+                                                    const excluded = (card.modelData.excludedPaths ?? []).length;
+                                                    if (excluded > 0) {
+                                                        parts.push(i18np("1 folder not synced", "%1 folders not synced", excluded));
+                                                    }
+                                                    const onlineOnly = card.modelData.onlineOnly ?? 0;
+                                                    if (onlineOnly > 0) {
+                                                        parts.push(i18np("1 online only", "%1 online only", onlineOnly));
+                                                    }
+                                                    return parts.join(" · ");
                                                 }
-                                                const onlineOnly = card.modelData.onlineOnly ?? 0;
-                                                if (onlineOnly > 0) {
-                                                    parts.push(i18np("1 online only", "%1 online only", onlineOnly));
+                                            }
+                                            QQC2.CheckBox {
+                                                visible: !card.isShortcut
+                                                text: i18n("Files On-Demand: download files only when you open them")
+                                                checked: card.modelData.filesOnDemand === true
+                                                onToggled: page.api.setFilesOnDemand(card.modelData.id, checked)
+                                                QQC2.ToolTip.visible: hovered
+                                                QQC2.ToolTip.delay: Kirigami.Units.toolTipDelay
+                                                QQC2.ToolTip.text: i18n("New files from online appear as placeholders (name.cloud) and are downloaded when you open them. Right-click files or folders in Dolphin to keep them on this computer or to free up space. Switching this off downloads everything again.")
+                                            }
+                                            QQC2.Label {
+                                                Layout.fillWidth: true
+                                                visible: card.isShortcut
+                                                wrapMode: Text.Wrap
+                                                opacity: 0.7
+                                                text: i18n("To stop syncing it, remove the shortcut in OneDrive online, or delete this folder here.")
+                                            }
+                                            Flow {
+                                                Layout.fillWidth: true
+                                                Layout.topMargin: Kirigami.Units.smallSpacing
+                                                spacing: Kirigami.Units.smallSpacing
+                                                QQC2.Button {
+                                                    icon.name: "document-open-folder"
+                                                    text: i18n("Open Folder")
+                                                    onClicked: Qt.openUrlExternally(page.api.fileUrl(card.modelData.localPath))
                                                 }
-                                                return parts.join(" · ");
-                                            }
-                                        }
-                                        QQC2.CheckBox {
-                                            visible: !card.isShortcut
-                                            text: i18n("Files On-Demand: download files only when you open them")
-                                            checked: card.modelData.filesOnDemand === true
-                                            onToggled: page.api.setFilesOnDemand(card.modelData.id, checked)
-                                            QQC2.ToolTip.visible: hovered
-                                            QQC2.ToolTip.delay: Kirigami.Units.toolTipDelay
-                                            QQC2.ToolTip.text: i18n("New files from online appear as placeholders (name.cloud) and are downloaded when you open them. Right-click files or folders in Dolphin to keep them on this computer or to free up space. Switching this off downloads everything again.")
-                                        }
-                                        QQC2.Label {
-                                            Layout.fillWidth: true
-                                            visible: card.isShortcut
-                                            wrapMode: Text.Wrap
-                                            opacity: 0.7
-                                            text: i18n("To stop syncing it, remove the shortcut in OneDrive online, or delete this folder here.")
-                                        }
-                                        Flow {
-                                            Layout.fillWidth: true
-                                            Layout.topMargin: Kirigami.Units.smallSpacing
-                                            spacing: Kirigami.Units.smallSpacing
-                                            QQC2.Button {
-                                                icon.name: "document-open-folder"
-                                                text: i18n("Open Folder")
-                                                onClicked: Qt.openUrlExternally(page.api.fileUrl(card.modelData.localPath))
-                                            }
-                                            QQC2.Button {
-                                                visible: (card.modelData.webUrl ?? "").length > 0
-                                                icon.name: "internet-services"
-                                                text: i18n("View Online")
-                                                onClicked: Qt.openUrlExternally(card.modelData.webUrl)
-                                            }
-                                            QQC2.Button {
-                                                visible: !card.isShortcut
-                                                icon.name: "folder-open-recent"
-                                                text: i18n("Choose Folders…")
-                                                onClicked: page.openRequested("chooseFolders", card.modelData.id)
-                                            }
-                                            QQC2.Button {
-                                                visible: !card.isShortcut
-                                                icon.name: "edit-delete-remove"
-                                                text: i18n("Stop Syncing")
-                                                onClicked: {
-                                                    page.rootToRemove = card.modelData;
-                                                    removeDialog.open();
+                                                QQC2.Button {
+                                                    visible: (card.modelData.webUrl ?? "").length > 0
+                                                    icon.name: "internet-services"
+                                                    text: i18n("View Online")
+                                                    onClicked: Qt.openUrlExternally(card.modelData.webUrl)
+                                                }
+                                                QQC2.Button {
+                                                    visible: !card.isShortcut
+                                                    icon.name: "folder-open-recent"
+                                                    text: i18n("Choose Folders…")
+                                                    enabled: card.modelData.state !== "signedOut"
+                                                    // Folders are listed with the location's own account
+                                                    onClicked: page.openRequested("chooseFolders", card.modelData.id)
+                                                }
+                                                QQC2.Button {
+                                                    visible: !card.isShortcut
+                                                    icon.name: "edit-delete-remove"
+                                                    text: i18n("Stop Syncing")
+                                                    onClicked: {
+                                                        page.rootToRemove = card.modelData;
+                                                        removeDialog.open();
+                                                    }
                                                 }
                                             }
                                         }
@@ -425,68 +544,187 @@ Item {
                         }
                     }
 
-                    // Account
+                    // Accounts
                     ColumnLayout {
                         spacing: Kirigami.Units.largeSpacing
 
-                        Kirigami.FormLayout {
+                        Kirigami.PlaceholderMessage {
                             Layout.fillWidth: true
-                            QQC2.Label {
-                                Kirigami.FormData.label: i18n("Name:")
-                                text: page.api.signedIn ? page.api.displayName : i18n("Not signed in")
+                            visible: page.syncAccounts.length === 0
+                            icon.name: "im-user-offline"
+                            text: i18n("Not signed in")
+                            helpfulAction: Kirigami.Action {
+                                icon.name: "im-user-online"
+                                text: i18n("Sign In…")
+                                onTriggered: page.openRequested("signIn", "")
                             }
-                            QQC2.Label {
-                                Kirigami.FormData.label: i18n("Account:")
-                                visible: page.api.signedIn
-                                text: page.api.userPrincipalName
-                            }
-                            QQC2.Label {
-                                Kirigami.FormData.label: i18n("Organization:")
-                                visible: page.api.signedIn
-                                text: page.api.organization
-                            }
-                            ColumnLayout {
-                                Kirigami.FormData.label: i18n("Storage:")
-                                visible: (page.personalRoot?.quotaTotal ?? 0) > 0
-                                QQC2.ProgressBar {
-                                    Layout.preferredWidth: Kirigami.Units.gridUnit * 14
-                                    from: 0
-                                    to: page.personalRoot?.quotaTotal ?? 1
-                                    value: page.personalRoot?.quotaUsed ?? 0
-                                }
-                                QQC2.Label {
-                                    text: i18n("%1 of %2 used", Qt.locale().formattedDataSize(page.personalRoot?.quotaUsed ?? 0), Qt.locale().formattedDataSize(page.personalRoot?.quotaTotal ?? 0))
-                                }
-                            }
-                            QQC2.CheckBox {
-                                Kirigami.FormData.label: i18n("Your OneDrive:")
-                                enabled: page.api.signedIn && page.api.daemonRunning
-                                text: i18nc("%1 is the organization", "Sync OneDrive - %1", page.api.organization)
-                                checked: page.personalRoot !== null
-                                onToggled: {
-                                    if (checked) {
-                                        page.api.addPersonal();
-                                    } else {
-                                        page.rootToRemove = page.personalRoot;
-                                        removeDialog.open();
+                        }
+
+                        Repeater {
+                            model: page.syncAccounts
+                            delegate: Kirigami.AbstractCard {
+                                id: accountCard
+                                required property var modelData
+                                readonly property var personal: page.roots.find(r => r.kind === "personal" && r.accountId === modelData.id) ?? null
+                                Layout.fillWidth: true
+
+                                contentItem: RowLayout {
+                                    spacing: Kirigami.Units.largeSpacing
+                                    Kirigami.Icon {
+                                        Layout.alignment: Qt.AlignTop
+                                        source: accountCard.modelData.signedIn ? "im-user" : "im-user-offline"
+                                        implicitWidth: Kirigami.Units.iconSizes.large
+                                        implicitHeight: Kirigami.Units.iconSizes.large
                                     }
-                                    checked = Qt.binding(() => page.personalRoot !== null);
+                                    ColumnLayout {
+                                        Layout.fillWidth: true
+                                        spacing: Kirigami.Units.smallSpacing
+                                        Kirigami.Heading {
+                                            Layout.fillWidth: true
+                                            level: 4
+                                            elide: Text.ElideRight
+                                            textFormat: Text.PlainText
+                                            text: accountCard.modelData.displayName || accountCard.modelData.userPrincipalName
+                                        }
+                                        QQC2.Label {
+                                            Layout.fillWidth: true
+                                            elide: Text.ElideRight
+                                            textFormat: Text.PlainText
+                                            text: accountCard.modelData.organization ? i18nc("%1 is the account, %2 the organization", "%1 · %2", accountCard.modelData.userPrincipalName, accountCard.modelData.organization) : accountCard.modelData.userPrincipalName
+                                        }
+                                        QQC2.Label {
+                                            Layout.fillWidth: true
+                                            wrapMode: Text.Wrap
+                                            color: !accountCard.modelData.signedIn && accountCard.modelData.locations > 0 ? Kirigami.Theme.negativeTextColor : Kirigami.Theme.textColor
+                                            opacity: color === Kirigami.Theme.negativeTextColor ? 1 : 0.7
+                                            text: accountCard.modelData.signedIn
+                                                ? i18np("Signed in · 1 location", "Signed in · %1 locations", accountCard.modelData.locations)
+                                                : (accountCard.modelData.locations > 0 ? i18np("Signed out: its location is not syncing", "Signed out: its %1 locations are not syncing", accountCard.modelData.locations) : i18n("Signed out"))
+                                        }
+                                        QQC2.Label {
+                                            Layout.fillWidth: true
+                                            visible: accountCard.modelData.current && page.syncAccounts.length > 1
+                                            wrapMode: Text.Wrap
+                                            opacity: 0.7
+                                            text: i18n("Used for new locations and for the Sync button in SharePoint.")
+                                        }
+                                        RowLayout {
+                                            visible: (accountCard.personal?.quotaTotal ?? 0) > 0
+                                            QQC2.ProgressBar {
+                                                Layout.preferredWidth: Kirigami.Units.gridUnit * 14
+                                                from: 0
+                                                to: accountCard.personal?.quotaTotal ?? 1
+                                                value: accountCard.personal?.quotaUsed ?? 0
+                                            }
+                                            QQC2.Label {
+                                                opacity: 0.7
+                                                text: i18n("%1 of %2 used", Qt.locale().formattedDataSize(accountCard.personal?.quotaUsed ?? 0), Qt.locale().formattedDataSize(accountCard.personal?.quotaTotal ?? 0))
+                                            }
+                                        }
+                                        QQC2.CheckBox {
+                                            enabled: accountCard.modelData.signedIn && page.api.daemonRunning
+                                            text: i18nc("%1 is the organization", "Sync OneDrive - %1", page.plain(accountCard.modelData.organization))
+                                            checked: accountCard.personal !== null
+                                            onToggled: {
+                                                if (checked) {
+                                                    // The OneDrive of this account; the current account stays
+                                                    page.api.addPersonalFor(accountCard.modelData.id);
+                                                } else {
+                                                    page.rootToRemove = accountCard.personal;
+                                                    removeDialog.open();
+                                                }
+                                                checked = Qt.binding(() => accountCard.personal !== null);
+                                            }
+                                        }
+                                        Flow {
+                                            Layout.fillWidth: true
+                                            Layout.topMargin: Kirigami.Units.smallSpacing
+                                            spacing: Kirigami.Units.smallSpacing
+                                            QQC2.Button {
+                                                visible: !accountCard.modelData.signedIn
+                                                icon.name: "im-user-online"
+                                                text: i18n("Sign In…")
+                                                onClicked: {
+                                                    page.api.setCurrentAccount(accountCard.modelData.id);
+                                                    page.openRequested("signIn", "");
+                                                }
+                                            }
+                                            QQC2.Button {
+                                                visible: accountCard.modelData.signedIn && !accountCard.modelData.current
+                                                icon.name: "checkmark"
+                                                text: i18n("Use for New Locations")
+                                                onClicked: page.api.setCurrentAccount(accountCard.modelData.id)
+                                            }
+                                            QQC2.Button {
+                                                visible: accountCard.modelData.signedIn
+                                                icon.name: "system-log-out"
+                                                text: i18n("Sign Out…")
+                                                onClicked: {
+                                                    page.accountToChange = accountCard.modelData;
+                                                    signOutDialog.open();
+                                                }
+                                            }
+                                            QQC2.Button {
+                                                visible: accountCard.modelData.locations > 0 && page.api.daemonRunning
+                                                icon.name: "list-remove-user"
+                                                text: i18n("Remove…")
+                                                onClicked: {
+                                                    page.accountToChange = accountCard.modelData;
+                                                    removeAccountDialog.open();
+                                                }
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }
 
-                        RowLayout {
-                            QQC2.Button {
-                                visible: page.api.signedIn
-                                icon.name: "system-log-out"
-                                text: i18n("Sign Out of This Computer…")
-                                onClicked: signOutDialog.open()
-                            }
-                            QQC2.Button {
-                                visible: !page.api.signedIn
-                                icon.name: "im-user-online"
-                                text: i18n("Sign In…")
-                                onClicked: page.openRequested("signIn", "")
+                        QQC2.Button {
+                            visible: page.syncAccounts.length > 0
+                            icon.name: "list-add-user"
+                            text: i18n("Add Account…")
+                            onClicked: page.openRequested("addAccount", "")
+                        }
+
+                        // Accounts another app of the suite added (Graph Mail): one sign-in here
+                        // syncs their files too
+                        Kirigami.Heading {
+                            Layout.topMargin: Kirigami.Units.largeSpacing
+                            visible: page.otherAccounts.length > 0
+                            level: 3
+                            text: i18n("Other accounts on this computer")
+                        }
+                        QQC2.Label {
+                            Layout.fillWidth: true
+                            visible: page.otherAccounts.length > 0
+                            wrapMode: Text.Wrap
+                            opacity: 0.7
+                            text: i18n("Added by another app, such as Graph Mail. Sign in to sync their files too.")
+                        }
+                        Repeater {
+                            model: page.otherAccounts
+                            delegate: RowLayout {
+                                required property var modelData
+                                Layout.fillWidth: true
+                                Kirigami.Icon {
+                                    source: "im-user-offline"
+                                    implicitWidth: Kirigami.Units.iconSizes.smallMedium
+                                    implicitHeight: Kirigami.Units.iconSizes.smallMedium
+                                }
+                                QQC2.Label {
+                                    Layout.fillWidth: true
+                                    elide: Text.ElideRight
+                                    textFormat: Text.PlainText
+                                    text: page.accountTitle(modelData)
+                                }
+                                QQC2.Button {
+                                    icon.name: "im-user-online"
+                                    text: i18n("Sign In…")
+                                    onClicked: {
+                                        page.api.setCurrentAccount(modelData.id);
+                                        page.openRequested("signIn", "");
+                                    }
+                                }
                             }
                         }
 

@@ -40,6 +40,9 @@ KCMUtils.AbstractKCM {
             case "signIn":
                 kcm.backend.launchApp(["--sign-in"]);
                 break;
+            case "addAccount":
+                kcm.backend.launchApp(["--add-account"]);
+                break;
             }
         }
     }

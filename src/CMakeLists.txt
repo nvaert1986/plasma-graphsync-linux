@@ -6,6 +6,7 @@ add_library(graphsynccore STATIC)
 set_target_properties(graphsynccore PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 target_sources(graphsynccore PRIVATE
+    core/accounts.cpp
     core/auth.cpp
     core/config.cpp
     core/driveitem.cpp
@@ -76,6 +77,7 @@ qt_add_qml_module(plasma-graphsync-linux
         app/qml/VersionsPage.qml
         app/qml/DeviceCodeBox.qml
         app/qml/ImportPage.qml
+        app/qml/AddAccountPage.qml
 )
 target_link_libraries(plasma-graphsync-linux PRIVATE
     graphsynccore

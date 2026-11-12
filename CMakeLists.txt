@@ -3,7 +3,7 @@
 
 cmake_minimum_required(VERSION 3.25)
 
-project(plasma-graphsync-linux VERSION 0.7.2 LANGUAGES CXX)
+project(plasma-graphsync-linux VERSION 0.8.4 LANGUAGES CXX)
 
 # Qt 6.9 and KDE Frameworks 6.20 are the main target. Older systems such as Debian 13 (Qt 6.8,
 # Frameworks 6.13, Plasma 6.3) build too, but sign in with a code only (Auth::browserLoginAvailable)
@@ -42,6 +42,7 @@ set(GRAPHSYNC_TENANT_ID "" CACHE STRING "Entra ID directory (tenant) ID to ship 
 add_subdirectory(src)
 add_subdirectory(data)
 add_subdirectory(icons)
+add_subdirectory(man)
 
 plasma_install_package(plasmoid/package io.github.nvaert1986.graphsync.tray)
 

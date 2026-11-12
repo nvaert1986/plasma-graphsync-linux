@@ -20,7 +20,7 @@ Kirigami.Page {
     }
 
     function loadChildren(index, itemId, parentPath, depth) {
-        const children = backend.childFolders(root.driveId, itemId);
+        const children = backend.childFolders(root.driveId, itemId, page.rootId);
         let insertAt = index + 1;
         for (const child of children) {
             const path = parentPath.length > 0 ? parentPath + "/" + child.name : child.name;

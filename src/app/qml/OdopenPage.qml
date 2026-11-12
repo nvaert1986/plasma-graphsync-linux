@@ -16,6 +16,11 @@ Kirigami.Page {
     property string localPath
     property bool started: false
 
+    // Names are text, never markup (messages show rich text)
+    function plain(text) {
+        return String(text ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    }
+
     function resolve() {
         info = backend.resolveOdopen(link);
         localPath = info.localPath ?? "";
@@ -24,8 +29,19 @@ Kirigami.Page {
     title: i18n("Sync a Library")
 
     Component.onCompleted: {
-        if (backend.signedIn) {
+        // The link may be for another account than the current one
+        if (backend.signedIn || (backend.status.accounts ?? []).some(a => a.signedIn)) {
             resolve();
+        }
+    }
+
+    // Back from signing in to the link's account, or from adding it: look again
+    Connections {
+        target: backend
+        function onAccountChanged() {
+            if (!page.started && (page.info.signInAccountId !== undefined || page.info.addAccountEmail !== undefined || page.info.siteName === undefined)) {
+                page.resolve();
+            }
         }
     }
 
@@ -45,12 +61,36 @@ Kirigami.Page {
             type: Kirigami.MessageType.Error
             text: page.info.error ?? backend.lastError
             visible: text.length > 0
+            actions: [
+                Kirigami.Action {
+                    visible: page.info.signInAccountId !== undefined
+                    icon.name: "im-user-online"
+                    text: i18n("Sign In…")
+                    onTriggered: {
+                        backend.setCurrentAccount(page.info.signInAccountId);
+                        applicationWindow().open("signIn", "");
+                    }
+                },
+                Kirigami.Action {
+                    visible: page.info.addAccountEmail !== undefined && page.info.signInAccountId === undefined
+                    icon.name: "list-add-user"
+                    text: i18n("Add Account…")
+                    onTriggered: applicationWindow().open("addAccount", page.info.addAccountEmail)
+                }
+            ]
         }
         Kirigami.InlineMessage {
             Layout.fillWidth: true
             type: Kirigami.MessageType.Warning
-            visible: page.info.siteName !== undefined && page.info.accountMatches === false
-            text: i18n("This link was made for %1, but you are signed in as %2. Syncing uses your account's access.", page.info.userEmail ?? "", backend.userPrincipalName)
+            // Only when the link names someone (older links do not)
+            visible: page.info.siteName !== undefined && page.info.accountMatches === false && (page.info.userEmail ?? "").length > 0
+            text: i18n("This link was made for %1, but it syncs with %2. Syncing uses that account's access.", page.plain(page.info.userEmail), page.plain(page.info.accountName))
+            actions: Kirigami.Action {
+                visible: page.info.addAccountEmail !== undefined
+                icon.name: "list-add-user"
+                text: i18n("Add %1…", page.info.addAccountEmail ?? "")
+                onTriggered: applicationWindow().open("addAccount", page.info.addAccountEmail)
+            }
         }
 
         QQC2.Button {
@@ -84,6 +124,13 @@ Kirigami.Page {
                 // Names of sites and libraries are text, never markup
                 textFormat: Text.PlainText
                 text: page.info.folderName ? i18n("Sync the folder %1 from %2?", page.info.folderName, page.info.siteName) : i18n("Sync %1 from %2?", page.info.libraryName ?? "", page.info.siteName ?? "")
+            }
+            QQC2.Label {
+                Layout.fillWidth: true
+                // Only worth saying with more than one account
+                visible: (backend.status.accounts ?? []).filter(a => a.signedIn).length > 1
+                textFormat: Text.PlainText
+                text: i18n("Syncs with %1", page.info.accountName ?? "")
             }
             QQC2.Label {
                 Layout.fillWidth: true
@@ -140,7 +187,8 @@ Kirigami.Page {
                         driveId: page.info.driveId,
                         remoteRootId: page.info.remoteRootId ?? "",
                         kind: page.info.kind,
-                        webUrl: page.info.webUrl
+                        webUrl: page.info.webUrl,
+                        accountId: page.info.accountId ?? ""
                     });
                     page.started = id !== "";
                 }

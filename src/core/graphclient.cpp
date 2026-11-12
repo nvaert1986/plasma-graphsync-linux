@@ -10,7 +10,9 @@
 #include <QEventLoop>
 #include <QFile>
 #include <QIODevice>
+#include <QHash>
 #include <QJsonDocument>
+#include <QMutex>
 #include <QNetworkReply>
 #include <QRegularExpression>
 #include <QThread>
@@ -32,22 +34,36 @@ constexpr int maxRetryAfterSeconds = 120;
 // Throttling (429/503) is not a failure of the request: it gets more patience
 constexpr int maxThrottledAttempts = 20;
 
-// SharePoint throttles per user, so a Retry-After holds back every request of the daemon (all
-// roots, all parallel jobs), as Microsoft asks; otherwise the other jobs keep hitting the server,
-// earn more 429s and give up
-std::atomic<qint64> throttledUntilMs{0};
+// SharePoint throttles per user, so a Retry-After holds back every request of that account (all
+// its roots, all parallel jobs), as Microsoft asks; otherwise the other jobs keep hitting the
+// server, earn more 429s and give up. Other accounts carry on.
+QMutex throttleMutex;
+QHash<QString, qint64> throttledUntilMs;
 
-void noteThrottled(int seconds)
+QString throttleKey(const Auth *auth)
+{
+    if (!auth) {
+        return {};
+    }
+    const AuthConfig config = auth->config();
+    return config.tenantId + QLatin1Char(':') + config.objectId;
+}
+
+void noteThrottled(const Auth *auth, int seconds)
 {
     const qint64 until = QDateTime::currentMSecsSinceEpoch() + qint64(seconds) * 1000;
-    qint64 current = throttledUntilMs.load();
-    while (current < until && !throttledUntilMs.compare_exchange_weak(current, until)) {
+    const QString key = throttleKey(auth);
+    QMutexLocker locker(&throttleMutex);
+    if (throttledUntilMs.value(key) < until) {
+        throttledUntilMs.insert(key, until);
     }
 }
 
-qint64 throttleWaitMs()
+qint64 throttleWaitMs(const Auth *auth)
 {
-    return std::max<qint64>(0, throttledUntilMs.load() - QDateTime::currentMSecsSinceEpoch());
+    const QString key = throttleKey(auth);
+    QMutexLocker locker(&throttleMutex);
+    return std::max<qint64>(0, throttledUntilMs.value(key) - QDateTime::currentMSecsSinceEpoch());
 }
 
 bool isThrottled(int status)
@@ -261,7 +277,7 @@ bool GraphClient::startParallelJob(ParallelState *state, qsizetype index)
         return false;
     }
     // Throttled: wait until SharePoint's Retry-After has passed, without counting an attempt
-    if (const qint64 waitMs = throttleWaitMs(); waitMs > 0) {
+    if (const qint64 waitMs = throttleWaitMs(m_auth); waitMs > 0) {
         ++state->active; // the slot stays taken while waiting
         QTimer::singleShot(waitMs, &state->loop, [this, state, index] {
             --state->active;
@@ -361,7 +377,7 @@ void GraphClient::finishParallelReply(ParallelState *state, qsizetype index, QNe
         const int serverWait = retryAfter.toInt(&ok);
         delayMs = (ok ? std::clamp(serverWait, 1, maxRetryAfterSeconds) : std::min(1 << state->attempts.at(index), 60)) * 1000;
         if (isThrottled(response.status)) {
-            noteThrottled(delayMs / 1000);
+            noteThrottled(m_auth, delayMs / 1000);
             qCInfo(GRAPHSYNC).noquote() << QStringLiteral("Throttled by Microsoft 365 (HTTP %1), pausing requests for %2 s").arg(response.status).arg(delayMs / 1000);
         }
         restart = true;
@@ -402,7 +418,7 @@ GraphResponse GraphClient::send(const QByteArray &verb, const QString &pathOrUrl
             response = {0, {}, QStringLiteral("cancelled")};
             return response;
         }
-        for (qint64 waitMs = throttleWaitMs(); waitMs > 0 && !(m_cancel && m_cancel->load()); waitMs = throttleWaitMs()) {
+        for (qint64 waitMs = throttleWaitMs(m_auth); waitMs > 0 && !(m_cancel && m_cancel->load()); waitMs = throttleWaitMs(m_auth)) {
             QThread::msleep(std::min<qint64>(waitMs, 100));
         }
 
@@ -498,7 +514,7 @@ GraphResponse GraphClient::send(const QByteArray &verb, const QString &pathOrUrl
             waitSeconds = std::clamp(serverWait, 1, maxRetryAfterSeconds);
         }
         if (isThrottled(response.status)) {
-            noteThrottled(waitSeconds);
+            noteThrottled(m_auth, waitSeconds);
         }
         qCInfo(GRAPHSYNC) << verb << url.path() << "->" << (response.status ? QString::number(response.status) : response.errorString)
                      << "retrying in" << waitSeconds << "s";

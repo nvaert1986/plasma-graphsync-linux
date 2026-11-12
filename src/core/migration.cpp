@@ -139,6 +139,52 @@ QString lockPath()
 }
 }
 
+void adoptSharedAccounts(int lockTimeoutMs)
+{
+    const QString path = configPath(QStringLiteral("graphsyncrc"));
+    if (!KConfig(path, KConfig::SimpleConfig).hasGroup(QStringLiteral("Account"))) {
+        return;
+    }
+    // The daemon, graphsyncctl (also the "migrate" autostart) and the app may all start at the
+    // first login after the upgrade: one moves the account, the others then find nothing to do
+    // (without the lock both could add the user to graphaccountsrc under two ids)
+    QLockFile lock(QDir(QFileInfo(lockPath()).absolutePath()).filePath(QStringLiteral("graphsync-accounts.lock")));
+    lock.setStaleLockTime(0);
+    if (!lock.tryLock(lockTimeoutMs)) {
+        qCWarning(GRAPHSYNC) << "Another process is moving the account to" << GraphCore::Accounts::configFileName() << "- not waiting longer";
+        return;
+    }
+    KConfig file(path, KConfig::SimpleConfig);
+    if (!file.hasGroup(QStringLiteral("Account"))) {
+        return;
+    }
+    const KConfigGroup old = file.group(QStringLiteral("Account"));
+    AccountInfo account;
+    account.objectId = old.readEntry("ObjectId", QString()).toLower();
+    account.tenantId = old.readEntry("TenantId", QString()).toLower();
+    account.userPrincipalName = old.readEntry("UserPrincipalName", QString());
+    account.displayName = old.readEntry("DisplayName", QString());
+    account.organization = old.readEntry("Organization", QString());
+    // The registration it signed in with (the cascade: an administrator's one counts too)
+    account.clientId = Config::auth().clientId;
+    if (account.tenantId.isEmpty()) {
+        account.tenantId = Config::auth().tenantId;
+    }
+    // Signed out: nothing to move; the next sign-in registers the account
+    if (!account.objectId.isEmpty() && !account.tenantId.isEmpty()) {
+        // Registered as if just signed in: current account, owner of the locations without one
+        const AccountInfo stored = Config::registerAccount(account, true);
+        // Its sign-in is still under the registration's key as 0.7 wrote it (any spelling); Auth
+        // moves it on first use
+        const AuthConfig written = Config::auth();
+        Config::setLegacyTokenUser(stored.objectId, Auth::keychainKeyFor({written.clientId, written.tenantId, {}}));
+        qCInfo(GRAPHSYNC).noquote() << "Moved the account" << stored.userPrincipalName << "to" << GraphCore::Accounts::configFileName() << "as" << stored.id;
+    }
+    // Last, so an interrupted run is simply done again (KConfig writes only this change)
+    file.deleteGroup(QStringLiteral("Account"));
+    file.sync();
+}
+
 bool pending()
 {
     return QFileInfo::exists(configPath(QStringLiteral("podlrc"))) && !QFileInfo::exists(markerPath()) && !newSetupExists();
@@ -187,7 +233,7 @@ Result importLegacyInstall(QString *message, int lockTimeoutMs)
     // XDG_CONFIG_DIRS entry, field by field (an administrator's podlrc is not ours to move)
     const KConfig cascade(QStringLiteral("podlrc"));
     const KConfigGroup cascadeAuth = cascade.group(QStringLiteral("Auth"));
-    const AuthConfig legacyAuth{cascadeAuth.readEntry("ClientId", QString()), cascadeAuth.readEntry("TenantId", QString())};
+    const AuthConfig legacyAuth{cascadeAuth.readEntry("ClientId", QString()), cascadeAuth.readEntry("TenantId", QString()), {}};
     // Stored normalised from now on; a domain as tenant becomes its tenant ID when it resolves
     AuthConfig auth = Auth::normalized(legacyAuth);
     if (!auth.tenantId.isEmpty() && !Auth::isGuid(auth.tenantId)) {

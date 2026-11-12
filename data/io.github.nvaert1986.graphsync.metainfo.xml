@@ -30,7 +30,7 @@
   </provides>
   <screenshots>
     <screenshot type="default">
-      <caption>Settings with the synced OneDrive and SharePoint locations</caption>
+      <caption>Settings with the synced locations of two accounts</caption>
       <image>https://raw.githubusercontent.com/nvaert1986/plasma-graphsync-linux/main/screenshots/settings.png</image>
     </screenshot>
     <screenshot>
@@ -38,11 +38,16 @@
       <image>https://raw.githubusercontent.com/nvaert1986/plasma-graphsync-linux/main/screenshots/share.png</image>
     </screenshot>
     <screenshot>
-      <caption>Recent activity in the system tray</caption>
+      <caption>The state of each account and recent activity in the system tray</caption>
       <image>https://raw.githubusercontent.com/nvaert1986/plasma-graphsync-linux/main/screenshots/tray-popup.png</image>
     </screenshot>
   </screenshots>
   <releases>
+    <release version="0.8.4" date="2026-11-12"/>
+    <release version="0.8.3" date="2026-11-12"/>
+    <release version="0.8.2" date="2026-11-11"/>
+    <release version="0.8.1" date="2026-11-11"/>
+    <release version="0.8.0" date="2026-11-11"/>
     <release version="0.7.2" date="2026-11-11"/>
     <release version="0.7.1" date="2026-11-11"/>
     <release version="0.7.0" date="2026-11-11"/>

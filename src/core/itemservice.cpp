@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "itemservice.h"
+#include "auth.h"
 #include "config.h"
 #include "graphclient.h"
 #include "placeholder.h"
@@ -74,7 +75,27 @@ QString roleOf(const QJsonArray &roles)
 
 ItemService::ItemService(GraphClient *graph)
     : m_graph(graph)
+    // Without a sign-in: requests fail with "not signed in" (an account that is gone)
+    , m_noAccountAuth(std::make_unique<Auth>(AuthConfig{}))
+    , m_noAccountGraph(std::make_unique<GraphClient>(m_noAccountAuth.get()))
 {
+}
+
+ItemService::~ItemService() = default;
+
+void ItemService::setGraphProvider(GraphProvider provider)
+{
+    m_provider = std::move(provider);
+}
+
+GraphClient *ItemService::graphFor(const QString &accountId) const
+{
+    if (accountId.isEmpty() || !m_provider) {
+        return m_graph;
+    }
+    // Never another account's client for an account that is gone
+    GraphClient *graph = m_provider(accountId);
+    return graph ? graph : m_noAccountGraph.get();
 }
 
 QString ItemService::itemPath(const Item &item)
@@ -102,17 +123,15 @@ ItemService::Item ItemService::resolve(const QString &localPath, QString *error)
     // A placeholder (Files On-Demand) stands for its real file
     const QString path = Placeholder::hasSuffix(localPath) && Placeholder::isPlaceholder(localPath) ? Placeholder::realPathOf(QDir::cleanPath(localPath))
                                                                                                    : QDir::cleanPath(localPath);
-    RootConfig owner;
-    const QList<RootConfig> roots = Config::roots();
-    for (const RootConfig &root : roots) {
-        const QString rootPath = QDir::cleanPath(root.localPath);
-        if ((path == rootPath || path.startsWith(rootPath + QLatin1Char('/'))) && rootPath.size() > owner.localPath.size()) {
-            owner = root;
-            owner.localPath = rootPath;
-        }
-    }
+    const RootConfig owner = Config::rootForPath(path);
     if (owner.id.isEmpty()) {
         *error = i18n("%1 is not in a synced folder.", path);
+        return {};
+    }
+    // Only with the location's own account: another one (the current account, say an
+    // administrator) must not share or change permissions in its name
+    if (!GraphCore::Accounts::find(owner.accountId).isValid()) {
+        *error = i18n("The account of %1 is no longer on this computer. Sign in to it again in Settings > Accounts.", owner.name);
         return {};
     }
 
@@ -121,7 +140,7 @@ ItemService::Item ItemService::resolve(const QString &localPath, QString *error)
                                                       : QStringLiteral("/drives/%1/items/%2").arg(owner.driveId, owner.remoteRootId);
     const QString request = (rel.isEmpty() ? base : base + QStringLiteral(":/") + rel + QLatin1Char(':'))
         + QStringLiteral("?$select=id,name,webUrl,folder,file,parentReference,sharepointIds");
-    const GraphResponse response = m_graph->get(request);
+    const GraphResponse response = graphFor(owner.accountId)->get(request);
     if (!response.ok()) {
         *error = describe(response);
         return {};
@@ -133,6 +152,7 @@ ItemService::Item ItemService::resolve(const QString &localPath, QString *error)
     item.name = json.value(QLatin1String("name")).toString();
     item.webUrl = json.value(QLatin1String("webUrl")).toString();
     item.isFolder = json.contains(QLatin1String("folder"));
+    item.accountId = owner.accountId;
 
     // The classic permissions page: <site>/_layouts/15/user.aspx?obj={list},<item>,LISTITEM&List={list}.
     // The library root has no list item and uses the library form (obj={list},doclib).
@@ -158,7 +178,7 @@ QVariantMap ItemService::createLink(const Item &item, const QString &type, const
         body.insert(QStringLiteral("expirationDateTime"), expiry.toUTC().toString(Qt::ISODate));
     }
     // Never send retainInheritedPermissions: false, it would drop all existing access on first share
-    const GraphResponse response = m_graph->postJson(itemPath(item) + QStringLiteral("/createLink"), body);
+    const GraphResponse response = graphFor(item.accountId)->postJson(itemPath(item) + QStringLiteral("/createLink"), body);
     if (!response.ok()) {
         *error = describe(response);
         return {};
@@ -173,7 +193,7 @@ QVariantMap ItemService::createLink(const Item &item, const QString &type, const
 
 QVariantList ItemService::permissions(const Item &item, QString *error)
 {
-    const GraphResponse response = m_graph->get(itemPath(item) + QStringLiteral("/permissions"));
+    const GraphResponse response = graphFor(item.accountId)->get(itemPath(item) + QStringLiteral("/permissions"));
     if (!response.ok()) {
         *error = describe(response);
         return {};
@@ -246,7 +266,7 @@ QVariantList ItemService::permissions(const Item &item, QString *error)
 
 bool ItemService::removePermission(const Item &item, const QString &permissionId, QString *error)
 {
-    const GraphResponse response = m_graph->deleteResource(itemPath(item) + QStringLiteral("/permissions/") + permissionId);
+    const GraphResponse response = graphFor(item.accountId)->deleteResource(itemPath(item) + QStringLiteral("/permissions/") + permissionId);
     if (!response.ok()) {
         *error = describe(response);
         return false;
@@ -269,7 +289,7 @@ bool ItemService::invite(const Item &item, const QStringList &emails, const QStr
     if (sendInvitation && !message.trimmed().isEmpty()) {
         body.insert(QStringLiteral("message"), message.trimmed());
     }
-    const GraphResponse response = m_graph->postJson(itemPath(item) + QStringLiteral("/invite"), body);
+    const GraphResponse response = graphFor(item.accountId)->postJson(itemPath(item) + QStringLiteral("/invite"), body);
     if (!response.ok()) {
         *error = describe(response);
         return false;
@@ -277,7 +297,7 @@ bool ItemService::invite(const Item &item, const QStringList &emails, const QStr
     return true;
 }
 
-QVariantList ItemService::searchPeople(const QString &query, bool *notAllowed, QString *error)
+QVariantList ItemService::searchPeople(const QString &query, const QString &accountId, bool *notAllowed, QString *error)
 {
     *notAllowed = false;
     const QString trimmed = query.trimmed();
@@ -299,7 +319,7 @@ QVariantList ItemService::searchPeople(const QString &query, bool *notAllowed, Q
 
     // People the user works with (People.Read), then the directory (User.ReadBasic.All)
     const QString search = QString::fromLatin1(QUrl::toPercentEncoding(QLatin1Char('"') + trimmed + QLatin1Char('"')));
-    GraphResponse response = m_graph->get(QStringLiteral("/me/people?$search=%1&$top=8&$select=displayName,scoredEmailAddresses").arg(search));
+    GraphResponse response = graphFor(accountId)->get(QStringLiteral("/me/people?$search=%1&$top=8&$select=displayName,scoredEmailAddresses").arg(search));
     if (response.ok()) {
         const QJsonArray people = response.json().value(QLatin1String("value")).toArray();
         for (const QJsonValue &value : people) {
@@ -313,7 +333,7 @@ QVariantList ItemService::searchPeople(const QString &query, bool *notAllowed, Q
     QString escaped = trimmed;
     escaped.replace(QLatin1Char('\''), QStringLiteral("''"));
     const QString filter = QString::fromLatin1(QUrl::toPercentEncoding(QStringLiteral("startswith(displayName,'%1') or startswith(mail,'%1')").arg(escaped)));
-    response = m_graph->get(QStringLiteral("/users?$filter=%1&$top=8&$select=displayName,mail").arg(filter));
+    response = graphFor(accountId)->get(QStringLiteral("/users?$filter=%1&$top=8&$select=displayName,mail").arg(filter));
     if (response.ok()) {
         const QJsonArray users = response.json().value(QLatin1String("value")).toArray();
         for (const QJsonValue &value : users) {
@@ -330,7 +350,7 @@ QVariantList ItemService::searchPeople(const QString &query, bool *notAllowed, Q
 
 QVariantList ItemService::versions(const Item &item, QString *error)
 {
-    const GraphResponse response = m_graph->get(itemPath(item) + QStringLiteral("/versions"));
+    const GraphResponse response = graphFor(item.accountId)->get(itemPath(item) + QStringLiteral("/versions"));
     if (!response.ok()) {
         *error = describe(response);
         return {};
@@ -364,7 +384,7 @@ bool ItemService::downloadVersion(const Item &item, const QString &versionId, co
         *error = i18n("Cannot write %1: %2", targetPath, file.errorString());
         return false;
     }
-    const GraphResponse response = m_graph->download(itemPath(item) + QStringLiteral("/versions/%1/content").arg(versionId), &file);
+    const GraphResponse response = graphFor(item.accountId)->download(itemPath(item) + QStringLiteral("/versions/%1/content").arg(versionId), &file);
     if (!response.ok()) {
         file.cancelWriting();
         *error = describe(response);
@@ -385,7 +405,7 @@ QString ItemService::addShortcut(const Item &folder, QString *error)
          QJsonObject{{QStringLiteral("id"), folder.id}, {QStringLiteral("parentReference"), QJsonObject{{QStringLiteral("driveId"), folder.driveId}}}}},
         {QStringLiteral("@microsoft.graph.conflictBehavior"), QStringLiteral("rename")},
     };
-    const GraphResponse response = m_graph->postJson(QStringLiteral("/me/drive/root/children"), body);
+    const GraphResponse response = graphFor(folder.accountId)->postJson(QStringLiteral("/me/drive/root/children"), body);
     if (!response.ok()) {
         *error = describe(response);
         return {};
@@ -395,7 +415,7 @@ QString ItemService::addShortcut(const Item &folder, QString *error)
 
 bool ItemService::restoreVersion(const Item &item, const QString &versionId, QString *error)
 {
-    const GraphResponse response = m_graph->postJson(itemPath(item) + QStringLiteral("/versions/%1/restoreVersion").arg(versionId), {});
+    const GraphResponse response = graphFor(item.accountId)->postJson(itemPath(item) + QStringLiteral("/versions/%1/restoreVersion").arg(versionId), {});
     if (!response.ok()) {
         *error = describe(response);
         return false;

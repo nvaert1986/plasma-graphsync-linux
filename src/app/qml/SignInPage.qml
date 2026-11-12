@@ -27,7 +27,9 @@ Kirigami.Page {
             Layout.fillWidth: true
             icon.name: page.done ? "checkmark" : "im-user-online"
             text: page.done ? i18n("Signed in as %1", backend.userPrincipalName) : i18n("Sign in to continue syncing")
-            explanation: page.done ? i18n("Syncing continues in the background.") : i18n("Your session expired. Sign in with your work account in the browser.")
+            explanation: page.done ? i18n("Syncing continues in the background.")
+                : (backend.userPrincipalName.length > 0 ? i18n("Sign in with %1 in the browser to sync its locations again.", backend.userPrincipalName)
+                                                        : i18n("Your session expired. Sign in with your work account in the browser."))
             helpfulAction: Kirigami.Action {
                 // The placeholder shows its button when the action is enabled; visible is ignored.
                 // While waiting it stays, showing what it waits for; a second click does nothing

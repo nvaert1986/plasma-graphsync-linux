@@ -4,7 +4,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: plasma-graphsync-linux\n"
-"PO-Revision-Date: 2026-11-11 10:35+0100\n"
+"PO-Revision-Date: 2026-11-12 08:55+0100\n"
 "Last-Translator: plasma-graphsync-linux contributors\n"
 "Language-Team: Dutch\n"
 "Language: nl\n"
@@ -24,6 +24,9 @@ msgstr "Je organisatie staat dit hier niet toe. (%1)"
 
 msgid "%1 is not in a synced folder."
 msgstr "%1 staat niet in een gesynchroniseerde map."
+
+msgid "The account of %1 is no longer on this computer. Sign in to it again in Settings > Accounts."
+msgstr "Het account van %1 staat niet meer op deze computer. Meld je er opnieuw bij aan via Instellingen > Accounts."
 
 msgid "Cannot write %1: %2"
 msgstr "Kan %1 niet schrijven: %2"
@@ -321,6 +324,9 @@ msgstr "Opnieuw aanmelden"
 msgid "Your session expired, so files are not syncing."
 msgstr "Je sessie is verlopen, daarom worden bestanden niet gesynchroniseerd."
 
+msgid "The session of %1 expired, so its files are not syncing."
+msgstr "De sessie van %1 is verlopen, daarom worden de bestanden ervan niet gesynchroniseerd."
+
 msgid "Sign In"
 msgstr "Aanmelden"
 
@@ -329,6 +335,9 @@ msgstr "De installatie-assistent starten"
 
 msgid "Add a library"
 msgstr "Een bibliotheek toevoegen"
+
+msgid "Sign in to another account"
+msgstr "Aanmelden bij een ander account"
 
 msgid "Choose which folders of a library to sync"
 msgstr "Kiezen welke mappen van een bibliotheek worden gesynchroniseerd"
@@ -380,17 +389,18 @@ msgctxt "name of the personal OneDrive, %1 is the organization"
 msgid "OneDrive - %1"
 msgstr "OneDrive - %1"
 
+msgctxt "folder name of the personal OneDrive, %1 is the organization"
+msgid "OneDrive - %1"
+msgstr "OneDrive - %1"
+
 msgid "Organization"
 msgstr "Organisatie"
-
-msgid "The app registration is not configured (client and tenant ID)."
-msgstr "De app-registratie is niet ingesteld (client- en tenant-ID)."
 
 msgid "The client ID looks like 00000000-0000-0000-0000-000000000000. Ask your IT administrator for it."
 msgstr "De client-ID ziet eruit als 00000000-0000-0000-0000-000000000000. Vraag je IT-beheerder erom."
 
-msgid "Enter your work e-mail address."
-msgstr "Vul je zakelijke e-mailadres in."
+msgid "Enter the work e-mail address of the account."
+msgstr "Vul het werk-e-mailadres van het account in."
 
 msgid "No connection to Microsoft 365. Check the network and try again."
 msgstr "Geen verbinding met Microsoft 365. Controleer het netwerk en probeer het opnieuw."
@@ -398,15 +408,23 @@ msgstr "Geen verbinding met Microsoft 365. Controleer het netwerk en probeer het
 msgid "No Microsoft 365 organization was found for %1."
 msgstr "Er is geen Microsoft 365-organisatie gevonden voor %1."
 
+msgid "The account of this location is no longer on this computer. Sign in to it again in Settings > Accounts."
+msgstr "Het account van deze locatie staat niet meer op deze computer. Meld je er opnieuw bij aan via Instellingen > Accounts."
+
+msgid "The app registration is not configured (client and tenant ID)."
+msgstr "De app-registratie is niet ingesteld (client- en tenant-ID)."
+
+msgid "Enter your work e-mail address."
+msgstr "Vul je zakelijke e-mailadres in."
+
 msgid "That is not a SharePoint address."
 msgstr "Dat is geen SharePoint-adres."
 
-msgctxt "folder name of the personal OneDrive, %1 is the organization"
-msgid "OneDrive - %1"
-msgstr "OneDrive - %1"
-
 msgid "This link does not contain a SharePoint library."
 msgstr "Deze link bevat geen SharePoint-bibliotheek."
+
+msgid "This link is for %1, which is signed out. Sign in to it first."
+msgstr "Deze link is voor %1, dat is afgemeld. Meld je daar eerst bij aan."
 
 msgid "The site could not be opened: %1"
 msgstr "De site kon niet worden geopend: %1"
@@ -484,8 +502,17 @@ msgstr "Bibliotheek synchroniseren"
 msgid "Choose Where to Keep the Files"
 msgstr "Kies waar de bestanden komen"
 
-msgid "This link was made for %1, but you are signed in as %2. Syncing uses your account's access."
-msgstr "Deze link is gemaakt voor %1, maar je bent aangemeld als %2. Bij het synchroniseren gelden de rechten van jouw account."
+msgid "Sign In…"
+msgstr "Aanmelden…"
+
+msgid "Add Account…"
+msgstr "Account toevoegen…"
+
+msgid "This link was made for %1, but it syncs with %2. Syncing uses that account's access."
+msgstr "Deze link is gemaakt voor %1, maar synchroniseert met %2. Synchroniseren gebruikt de toegang van dat account."
+
+msgid "Add %1…"
+msgstr "%1 toevoegen…"
 
 msgid "Sign In to Continue"
 msgstr "Aanmelden om verder te gaan"
@@ -495,6 +522,9 @@ msgstr "De map %1 uit %2 synchroniseren?"
 
 msgid "Sync %1 from %2?"
 msgstr "%1 uit %2 synchroniseren?"
+
+msgid "Syncs with %1"
+msgstr "Synchroniseert met %1"
 
 msgid "Files will be kept in:"
 msgstr "De bestanden komen in:"
@@ -594,6 +624,13 @@ msgstr "Dit programma heette eerder plasma-onedrive-linux. Je mappen, synchronis
 msgid "Try Again"
 msgstr "Opnieuw proberen"
 
+msgid "Waiting for an account"
+msgstr "Wacht op een account"
+
+msgctxt "%1 is the account, %2 the organization"
+msgid "%1 (%2)"
+msgstr "%1 (%2)"
+
 msgid "just now"
 msgstr "zojuist"
 
@@ -643,6 +680,9 @@ msgstr "Hier zijn veel bestanden verwijderd; wacht op je beslissing"
 msgid "Stopped"
 msgstr "Gestopt"
 
+msgid "Signed out: sign in to sync this location again"
+msgstr "Afgemeld: meld je aan om deze locatie weer te synchroniseren"
+
 msgid "Up to date, last synced %1"
 msgstr "Bijgewerkt, laatst gesynchroniseerd %1"
 
@@ -661,14 +701,26 @@ msgstr "Synchroniseren stoppen"
 msgid "Sign Out of This Computer?"
 msgstr "Afmelden op deze computer?"
 
+msgid "The locations of %1 stop syncing until you sign in again. Your local files are kept."
+msgstr "De locaties van %1 worden niet meer gesynchroniseerd tot je je opnieuw aanmeldt. Je lokale bestanden blijven bewaard."
+
 msgid "Syncing stops until you sign in again. Your local files are kept."
 msgstr "Het synchroniseren stopt totdat je je opnieuw aanmeldt. Je lokale bestanden blijven bewaard."
 
 msgid "Sign Out"
 msgstr "Afmelden"
 
-msgid "Account"
-msgstr "Account"
+msgid "Remove Account?"
+msgstr "Account verwijderen?"
+
+msgid "%1 is signed out and its locations stop syncing. The files stay online, and the local copies are kept as ordinary files."
+msgstr "%1 wordt afgemeld en de locaties ervan worden niet meer gesynchroniseerd. De bestanden blijven online, en de lokale kopieën blijven als gewone bestanden bewaard."
+
+msgid "Remove Account"
+msgstr "Account verwijderen"
+
+msgid "Accounts"
+msgstr "Accounts"
 
 msgid "Notifications"
 msgstr "Meldingen"
@@ -724,6 +776,9 @@ msgstr "Bibliotheek toevoegen…"
 msgid "Use the Sync button in SharePoint, or add a library here."
 msgstr "Gebruik de knop Synchroniseren in SharePoint of voeg hier een bibliotheek toe."
 
+msgid "No locations of this account are synced."
+msgstr "Er worden geen locaties van dit account gesynchroniseerd."
+
 msgctxt "%1 is a sync location such as OneDrive - Contoso"
 msgid "Shortcut in %1"
 msgstr "Snelkoppeling in %1"
@@ -758,33 +813,47 @@ msgstr "Online bekijken"
 msgid "Choose Folders…"
 msgstr "Mappen kiezen…"
 
-msgid "Name:"
-msgstr "Naam:"
+msgctxt "%1 is the account, %2 the organization"
+msgid "%1 · %2"
+msgstr "%1 · %2"
 
-msgid "Account:"
-msgstr "Account:"
+msgid "Signed in · 1 location"
+msgid_plural "Signed in · %1 locations"
+msgstr[0] "Aangemeld · 1 locatie"
+msgstr[1] "Aangemeld · %1 locaties"
 
-msgid "Organization:"
-msgstr "Organisatie:"
+msgid "Signed out: its location is not syncing"
+msgid_plural "Signed out: its %1 locations are not syncing"
+msgstr[0] "Afgemeld: de locatie ervan wordt niet gesynchroniseerd"
+msgstr[1] "Afgemeld: de %1 locaties ervan worden niet gesynchroniseerd"
 
-msgid "Storage:"
-msgstr "Opslag:"
+msgid "Signed out"
+msgstr "Afgemeld"
+
+msgid "Used for new locations and for the Sync button in SharePoint."
+msgstr "Wordt gebruikt voor nieuwe locaties en voor de knop Synchroniseren in SharePoint."
 
 msgid "%1 of %2 used"
 msgstr "%1 van %2 gebruikt"
-
-msgid "Your OneDrive:"
-msgstr "Je OneDrive:"
 
 msgctxt "%1 is the organization"
 msgid "Sync OneDrive - %1"
 msgstr "OneDrive - %1 synchroniseren"
 
-msgid "Sign Out of This Computer…"
-msgstr "Afmelden op deze computer…"
+msgid "Use for New Locations"
+msgstr "Gebruiken voor nieuwe locaties"
 
-msgid "Sign In…"
-msgstr "Aanmelden…"
+msgid "Sign Out…"
+msgstr "Afmelden…"
+
+msgid "Remove…"
+msgstr "Verwijderen…"
+
+msgid "Other accounts on this computer"
+msgstr "Andere accounts op deze computer"
+
+msgid "Added by another app, such as Graph Mail. Sign in to sync their files too."
+msgstr "Toegevoegd door een andere app, zoals Graph Mail. Meld je aan om ook de bestanden ervan te synchroniseren."
 
 msgid "You are notified about sync conflicts, problems, newly synced libraries, many removed files and an expired sign-in. Choose which of these show a popup, play a sound or are only logged."
 msgstr "Je krijgt een melding bij synchronisatieconflicten, problemen, nieuw gesynchroniseerde bibliotheken, veel verwijderde bestanden en een verlopen aanmelding. Kies welke hiervan een pop-up tonen, een geluid afspelen of alleen worden vastgelegd."
@@ -1102,6 +1171,9 @@ msgstr "Meld je aan om verder te synchroniseren"
 msgid "Syncing continues in the background."
 msgstr "Het synchroniseren gaat op de achtergrond verder."
 
+msgid "Sign in with %1 in the browser to sync its locations again."
+msgstr "Meld je in de browser aan met %1 om de locaties ervan weer te synchroniseren."
+
 msgid "Your session expired. Sign in with your work account in the browser."
 msgstr "Je sessie is verlopen. Meld je aan met je werkaccount in de browser."
 
@@ -1147,3 +1219,37 @@ msgstr "%1 heeft dit bestand open. Sluit het eerst, anders geeft opslaan daar la
 
 msgid "Version %1 restored. The file on this computer is updated in a moment."
 msgstr "Versie %1 is teruggezet. Het bestand op deze computer wordt zo bijgewerkt."
+
+msgid "Add Account"
+msgstr "Account toevoegen"
+
+msgid "This organization has not approved Graph Sync yet. An administrator of the organization opens the approval page once, signs in and accepts; then sign in again here."
+msgstr "Deze organisatie heeft Graph Sync nog niet goedgekeurd. Een beheerder van de organisatie opent de goedkeuringspagina één keer, meldt zich aan en accepteert; meld je daarna hier opnieuw aan."
+
+msgid "Open Approval Page"
+msgstr "Goedkeuringspagina openen"
+
+msgid "name@organization.com"
+msgstr "naam@organisatie.nl"
+
+msgid "This organization has its own app registration"
+msgstr "Deze organisatie heeft een eigen app-registratie"
+
+msgid "The client ID of the app registration in that organization, from its IT administrator."
+msgstr "De client-ID van de app-registratie in die organisatie, van de IT-beheerder daar."
+
+msgid "Signs in with the same app registration as your other accounts. Its organization must have approved it."
+msgstr "Meldt aan met dezelfde app-registratie als je andere accounts. De organisatie moet die hebben goedgekeurd."
+
+msgid "Sign in with %1"
+msgstr "Aanmelden met %1"
+
+msgctxt "%1 is the organization"
+msgid "Choose what to sync from %1."
+msgstr "Kies wat je wilt synchroniseren van %1."
+
+msgid "Sign in in the browser with this work account."
+msgstr "Meld je in de browser aan met dit werkaccount."
+
+msgid "Looking up the organization…"
+msgstr "Organisatie opzoeken…"

@@ -1,3 +1,45 @@
+plasma-graphsync-linux (0.8.4-1) unstable; urgency=medium
+
+  * Fixes from a third code review: no freezes or hangs while a sign-in
+    is busy, KWallet used from one thread, signing in restarts only that
+    account's locations. More in CHANGELOG.md.
+
+ -- nvaert1986 <25772781+nvaert1986@users.noreply.github.com>  Thu, 12 Nov 2026 08:58:29 +0100
+
+plasma-graphsync-linux (0.8.3-1) unstable; urgency=medium
+
+  * Fixes from a second code review: sign-ins and accounts (a failed
+    sign-in, cancelling Add Account, sign-out, the first start after an
+    upgrade). More in CHANGELOG.md.
+
+ -- nvaert1986 <25772781+nvaert1986@users.noreply.github.com>  Thu, 12 Nov 2026 08:06:13 +0100
+
+plasma-graphsync-linux (0.8.2-1) unstable; urgency=medium
+
+  * The Share window names the organisation of the file's own account.
+  * Man pages for graphsyncctl, graphsyncd and plasma-graphsync-linux.
+
+ -- nvaert1986 <25772781+nvaert1986@users.noreply.github.com>  Wed, 11 Nov 2026 16:55:13 +0100
+
+plasma-graphsync-linux (0.8.1-1) unstable; urgency=medium
+
+  * Fixes from testing with two organisations and from a code and security
+    review: a crash of the sync service on overlapping account reloads, new
+    locations watched at once, every file action with its location's own
+    account. More in CHANGELOG.md.
+
+ -- nvaert1986 <25772781+nvaert1986@users.noreply.github.com>  Wed, 11 Nov 2026 15:12:32 +0100
+
+plasma-graphsync-linux (0.8.0-1) unstable; urgency=medium
+
+  * More than one account: other organisations (one multi-tenant app
+    registration approved per organisation, or their own registration) and
+    other users. Accounts are shared with the other apps of the suite.
+  * Settings > Accounts, the tray and the SharePoint Sync button work per
+    account. More in CHANGELOG.md.
+
+ -- nvaert1986 <25772781+nvaert1986@users.noreply.github.com>  Wed, 11 Nov 2026 13:28:08 +0100
+
 plasma-graphsync-linux (0.7.2-1) unstable; urgency=medium
 
   * Temporary, lock and desktop files and names ending in .cloud are never
