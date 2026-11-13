@@ -6,7 +6,7 @@
 A native KDE Plasma 6 sync client for OneDrive for Business and SharePoint document
 libraries, written in C++ with Qt 6 and KDE Frameworks 6.
 
-**Status:** version 0.8.5, phases 0 to 8 done (the version number follows the last finished
+**Status:** version 0.9.4, phases 0 to 9 done (the version number follows the last finished
 phase).
 
 > **Experimental: use at your own risk.** This is young software that uploads, changes and
@@ -49,8 +49,11 @@ phase).
   state at a glance (synced, syncing, paused, error, offline)
 - Settings window in the style of the Windows client, and a page in System Settings
 - Handler for the **Sync** button on SharePoint libraries (`odopen://` links)
-- Dolphin integration: sync state emblems on files and folders, and a right-click menu with
-  Share, Copy Link, View Online, Version History, Sync Now and Choose Folders
+- PC folder backup: Desktop, Documents and Pictures kept in your OneDrive, in the same folders as
+  the Windows client uses; the folders stay where they are on this computer
+- Dolphin integration: sync state emblems on files and folders, a "Shared" emblem on what is
+  shared with others, and a right-click menu with Share, Copy Link, View Online, Version
+  History, Sync Now and Choose Folders
 - **Copy link** in one click with the organisation's default link, **Share** (invite people,
   links with settings, who has access) and **Version history** (open, save a copy, restore)
 - Optional: name suggestions when inviting people (see [Permissions](#permissions))

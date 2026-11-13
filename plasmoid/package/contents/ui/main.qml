@@ -79,14 +79,21 @@ PlasmoidItem {
     }
 
     function command(object, onResult) {
-        DBus.SessionBus.asyncCall({
+        // The one-argument asyncCall and its reply's finished signal: Plasma 6.3 (Debian 13) has
+        // no asyncCall with result callbacks; it ignores them and the status never arrives
+        const reply = DBus.SessionBus.asyncCall({
             service: service,
             path: "/GraphSync",
             iface: "io.github.nvaert1986.GraphSync",
             member: "Command",
             // Typed argument and no explicit signature: a plain JS string or "s" is rejected
             arguments: [new DBus.string(JSON.stringify(object))]
-        }, reply => {
+        });
+        reply.finished.connect(() => {
+            if (reply.isError) {
+                console.warn("plasma-graphsync-linux:", reply.error?.message);
+                return;
+            }
             if (onResult) {
                 const text = unwrap(reply);
                 try {
@@ -95,7 +102,7 @@ PlasmoidItem {
                     console.warn("plasma-graphsync-linux: unexpected reply", text);
                 }
             }
-        }, reply => console.warn("plasma-graphsync-linux:", reply?.error?.message));
+        });
     }
 
     function refresh() {

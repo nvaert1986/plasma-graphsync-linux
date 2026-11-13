@@ -192,6 +192,7 @@ GeneralConfig general()
     general.skipDotFiles = group.readEntry("SkipDotFiles", false);
     general.downloadLimitKBps = std::max(0, group.readEntry("DownloadLimitKBps", 0));
     general.uploadLimitKBps = std::max(0, group.readEntry("UploadLimitKBps", 0));
+    general.freeUpAfterDays = std::max(0, group.readEntry("FreeUpAfterDays", 0));
     return general;
 }
 
@@ -208,6 +209,7 @@ void setGeneral(const GeneralConfig &general)
     group.writeEntry("SkipDotFiles", general.skipDotFiles);
     group.writeEntry("DownloadLimitKBps", general.downloadLimitKBps);
     group.writeEntry("UploadLimitKBps", general.uploadLimitKBps);
+    group.writeEntry("FreeUpAfterDays", general.freeUpAfterDays);
     cfg->sync();
 }
 
@@ -234,6 +236,7 @@ QList<RootConfig> roots()
         root.parentRootId = group.readEntry("ParentRoot", QString());
         root.filesOnDemand = group.readEntry("FilesOnDemand", false);
         root.accountId = group.readEntry("Account", QString());
+        root.backup = group.readEntry("Backup", QString());
         result.append(root);
     }
     return result;
@@ -249,14 +252,20 @@ RootPathProblem rootPathProblem(const QString &path)
     if (clean == QLatin1String("/") || clean == home || home.startsWith(clean + QLatin1Char('/'))) {
         return RootPathProblem::TooBroad;
     }
+    return overlapsRoot(clean) ? RootPathProblem::Overlaps : RootPathProblem::None;
+}
+
+bool overlapsRoot(const QString &path)
+{
+    const QString clean = QDir::cleanPath(path);
     const QList<RootConfig> existing = roots();
     for (const RootConfig &root : existing) {
         const QString other = QDir::cleanPath(root.localPath);
         if (clean == other || clean.startsWith(other + QLatin1Char('/')) || other.startsWith(clean + QLatin1Char('/'))) {
-            return RootPathProblem::Overlaps;
+            return true;
         }
     }
-    return RootPathProblem::None;
+    return false;
 }
 
 RootConfig rootForPath(const QString &path)
@@ -305,6 +314,11 @@ RootConfig addRoot(const RootConfig &root)
     group.writeEntry("Kind", stored.kind);
     group.writeEntry("WebUrl", stored.webUrl);
     group.writeEntry("ExcludedPaths", stored.excludedPaths);
+    if (stored.backup.isEmpty()) {
+        group.deleteEntry("Backup");
+    } else {
+        group.writeEntry("Backup", stored.backup);
+    }
     // Kept as it was when a root is written again (shortcut roots are rewritten after renames)
     if (!group.hasKey("FilesOnDemand") || stored.filesOnDemand) {
         group.writeEntry("FilesOnDemand", stored.filesOnDemand);
@@ -336,7 +350,11 @@ bool removeRoot(const QString &id)
     }
     cfg->deleteGroup(rootPrefix + id);
     cfg->sync();
-    QFile::remove(QDir(stateDirectory()).filePath(id + QStringLiteral(".sqlite3")));
+    // With its write-ahead log: a stale -wal next to a new database of the same id (shortcut ids
+    // come back) would bring the old rows back into it
+    for (const QString &suffix : {QString(), QStringLiteral("-wal"), QStringLiteral("-shm")}) {
+        QFile::remove(QDir(stateDirectory()).filePath(id + QStringLiteral(".sqlite3") + suffix));
+    }
     return true;
 }
 

@@ -38,7 +38,7 @@ private Q_SLOTS:
         QTest::addColumn<QString>("name");
         QTest::addColumn<bool>("valid");
         QTest::newRow("plain") << QStringLiteral("Quarterly report.xlsx") << true;
-        QTest::newRow("unicode") << QStringLiteral("Overzicht €uro – ü.docx") << true;
+        QTest::newRow("unicode") << QStringLiteral("Overview €uro – ü.docx") << true;
         QTest::newRow("colon") << QStringLiteral("10:30 meeting.txt") << false;
         QTest::newRow("question mark") << QStringLiteral("why?.txt") << false;
         QTest::newRow("pipe") << QStringLiteral("a|b") << false;

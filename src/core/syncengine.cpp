@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "syncengine.h"
+#include "autofreeup.h"
 #include "placeholder.h"
 #include "ratelimiter.h"
 #include "auth.h"
@@ -47,6 +48,10 @@ constexpr int commitEvery = 200;
 // Local deletes propagated in one cycle above this share of known items are refused
 constexpr double bigDeleteShare = 0.3;
 constexpr int bigDeleteMinimum = 50;
+// uploadContent's status when the local file cannot be read (unlike 0: no connection)
+constexpr int localReadError = -1;
+// Automatic free up space runs at most this often per location
+constexpr qint64 autoFreeUpEverySecs = 6 * 3600;
 constexpr int maxItemAttempts = 5;
 
 QString joinRel(const QString &parent, const QString &name)
@@ -75,19 +80,6 @@ QString encodeSegment(const QString &name)
     return QString::fromLatin1(QUrl::toPercentEncoding(name));
 }
 
-bool setMtime(const QString &path, const QDateTime &time)
-{
-    if (!time.isValid()) {
-        return false;
-    }
-    const qint64 ms = time.toMSecsSinceEpoch();
-    struct timespec times[2];
-    times[0].tv_sec = 0;
-    times[0].tv_nsec = UTIME_OMIT;
-    times[1].tv_sec = ms / 1000;
-    times[1].tv_nsec = (ms % 1000) * 1000000;
-    return ::utimensat(AT_FDCWD, QFile::encodeName(path).constData(), times, 0) == 0;
-}
 }
 
 SyncEngine::SyncEngine(const RootConfig &root, Auth *auth, QObject *parent)
@@ -142,10 +134,13 @@ void SyncEngine::setExcludedPaths(const QStringList &paths)
 {
     m_root.excludedPaths = paths;
     m_excludedDirty = true;
-    // A folder that is synced again must be fetched completely: start over with a full delta
+    // A folder that is synced again must be fetched completely: start over with a full delta.
+    // Also when this runs inside a cycle (its network waits run queued calls): that cycle must
+    // not store its delta position over this afterwards.
     if (m_db) {
         m_db->setMeta(QStringLiteral("deltaLink"), QString());
     }
+    m_startOver = true;
     requestSync();
 }
 
@@ -155,6 +150,7 @@ void SyncEngine::checkEverything()
         m_db->setMeta(QStringLiteral("deltaLink"), QString());
         m_db->setMeta(QStringLiteral("retry"), QString());
     }
+    m_startOver = true;
     {
         QMutexLocker locker(&m_statusMutex);
         m_status.remove(QStringLiteral("persistentErrors"));
@@ -218,7 +214,7 @@ void SyncEngine::fetchQuota()
     m_status.insert(QStringLiteral("quotaTotal"), quota.value(QLatin1String("total")).toDouble());
 }
 
-QList<DriveItem> SyncEngine::fetchRetryItems(QHash<QString, int> *attempts)
+QList<DriveItem> SyncEngine::fetchRetryItems(QHash<QString, int> *attempts, QStringList *unreachable)
 {
     QList<DriveItem> items;
     const QJsonObject stored = QJsonDocument::fromJson(m_db->meta(QStringLiteral("retry")).toUtf8()).object();
@@ -232,6 +228,9 @@ QList<DriveItem> SyncEngine::fetchRetryItems(QHash<QString, int> *attempts)
             items.append(gone);
         } else if (response.ok()) {
             items.append(DriveItem::fromJson(response.json()));
+        } else {
+            // Not reachable now (server error, no connection): stays on the list, never forgotten
+            unreachable->append(it.key());
         }
     }
     return items;
@@ -307,12 +306,16 @@ void SyncEngine::publishSnapshot(bool rebuildKnown)
     if (rebuildKnown) {
         m_knownCache.clear();
         m_dehydratedCache.clear();
+        m_sharedCache.clear();
         m_knownCache.reserve(m_items.size());
         for (auto it = m_items.constBegin(); it != m_items.constEnd(); ++it) {
             if (const auto rel = relPath(it.key())) {
                 m_knownCache.insert(*rel, {it->localSize, it->localMtimeNs, it->isFolder});
                 if (it->dehydrated) {
-                    m_dehydratedCache.insert(*rel);
+                    m_dehydratedCache.insert(*rel, it.key());
+                }
+                if (it->shared) {
+                    m_sharedCache.insert(*rel);
                 }
             }
         }
@@ -324,6 +327,7 @@ void SyncEngine::publishSnapshot(bool rebuildKnown)
     snapshot->excluded = m_root.excludedPaths;
     snapshot->userRules = m_userRules;
     snapshot->dehydrated = m_dehydratedCache;
+    snapshot->shared = m_sharedCache;
     {
         QMutexLocker locker(&m_statusMutex);
         m_snapshot = std::move(snapshot);
@@ -346,6 +350,11 @@ void SyncEngine::recordError(const QString &message)
 void SyncEngine::uploadFailed(const QString &rel, int status)
 {
     markError(rel);
+    if (status == localReadError) {
+        // Only this file: the other uploads go on
+        recordError(i18n("Cannot read %1 here to upload it; check its permissions", rel));
+        return;
+    }
     if (status != 0 || m_paused) {
         recordError(i18n("Upload of %1 failed (HTTP %2)", rel, status));
         return;
@@ -400,8 +409,13 @@ bool SyncEngine::ensureInitialized(QString *error)
 bool SyncEngine::checkLocalRoot(QString *error)
 {
     const QFileInfo info(m_root.localPath);
+    // Desktop, Documents and Pictures (PC folder backup) keep their own icons; the emblem shows
+    // that they are synced
+    const bool ownIcon = m_root.backup.isEmpty();
     if (info.isDir()) {
-        FolderIcon::apply(m_root.localPath, QStringLiteral("folder-cloud"));
+        if (ownIcon) {
+            FolderIcon::apply(m_root.localPath, QStringLiteral("folder-cloud"));
+        }
         return true;
     }
     if (info.exists()) {
@@ -418,7 +432,9 @@ bool SyncEngine::checkLocalRoot(QString *error)
         *error = i18n("Cannot create %1", m_root.localPath);
         return false;
     }
-    FolderIcon::apply(m_root.localPath, QStringLiteral("folder-cloud"));
+    if (ownIcon) {
+        FolderIcon::apply(m_root.localPath, QStringLiteral("folder-cloud"));
+    }
     return true;
 }
 
@@ -428,8 +444,14 @@ void SyncEngine::removeStaleTempFiles()
                     {IgnoreRules::tempPrefix + QLatin1Char('*'), IgnoreRules::legacyTempPrefix + QLatin1Char('*')},
                     QDir::Files | QDir::Hidden,
                     QDirIterator::Subdirectories);
+    // Only old ones: a shortcut folder inside this one is synced by its own engine, which may be
+    // downloading right now (a recent leftover is overwritten by the next download of that item)
+    const QDateTime staleBefore = QDateTime::currentDateTimeUtc().addSecs(-10 * 60);
     while (it.hasNext()) {
-        QFile::remove(it.next());
+        const QString path = it.next();
+        if (QFileInfo(path).lastModified().toUTC() < staleBefore) {
+            QFile::remove(path);
+        }
     }
 }
 
@@ -454,6 +476,11 @@ bool SyncEngine::syncOnce(QString *errorOut)
     m_lowSpaceMessage.clear();
     m_offline = false;
     m_transfer = {};
+    {
+        // A removed shortcut waits for a whole cycle that started after its removal (RootController::drain)
+        QMutexLocker locker(&m_statusMutex);
+        m_status.insert(QStringLiteral("cycleStarted"), QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs));
+    }
     setState(QStringLiteral("syncing"));
 
     bool ok = ensureInitialized(&error) && checkLocalRoot(&error);
@@ -482,6 +509,13 @@ bool SyncEngine::syncOnce(QString *errorOut)
         ok = remotePhase(&error);
         if (ok && m_mode == Mode::TwoWay && !m_paused) {
             ok = localPhase(&error);
+        } else if (m_lowSpace && m_mode == Mode::TwoWay && !m_paused && !m_cancel) {
+            // No room for downloads: local changes are still uploaded (the skipped downloads have
+            // no state yet, and the delta position stays, so they come once there is room)
+            QString localError;
+            if (!localPhase(&localError)) {
+                recordError(localError);
+            }
         }
         if (m_forceResync) {
             m_db->setMeta(QStringLiteral("deltaLink"), QString());
@@ -531,6 +565,8 @@ bool SyncEngine::syncOnce(QString *errorOut)
         emitShortcuts();
     }
     m_running = false;
+    // Requests that arrived during the cycle outside its safe points
+    QMetaObject::invokeMethod(this, &SyncEngine::processRequests, Qt::QueuedConnection);
     setState(m_paused ? QStringLiteral("paused")
                       : (m_offline ? QStringLiteral("offline") : (m_cycleErrors.isEmpty() ? QStringLiteral("idle") : QStringLiteral("error"))));
     if (errorOut) {
@@ -608,12 +644,22 @@ bool SyncEngine::dehydrate(const QString &id, const QString &rel)
         recordError(i18n("Cannot write the placeholder for %1: %2", rel, error));
         return false;
     }
-    if (!QFile::remove(abs)) {
+    // Moved aside first (atomic), then checked to be the very file that was found unchanged: a
+    // save in between (new content, or a new file in its place) is put back untouched
+    const QString aside = abs + QStringLiteral(".graphsync-freeing");
+    if (::rename(QFile::encodeName(abs).constData(), QFile::encodeName(aside).constData()) != 0) {
         QFile::remove(abs + Placeholder::suffix);
         markError(rel);
         recordError(i18n("Cannot free up the space of %1", rel));
         return false;
     }
+    const auto moved = LocalScanner::stat(aside);
+    if (!moved || moved->inode != local->inode || moved->size != local->size || moved->mtimeNs != local->mtimeNs) {
+        ::rename(QFile::encodeName(aside).constData(), QFile::encodeName(abs).constData());
+        QFile::remove(abs + Placeholder::suffix);
+        return false;
+    }
+    QFile::remove(aside);
     row.dehydrated = true;
     row.localSize = -1;
     row.localMtimeNs = 0;
@@ -671,6 +717,8 @@ void SyncEngine::applyPins()
         return;
     }
     int freed = 0;
+    // Files programs have open, read once when needed
+    std::optional<QSet<QString>> open;
     // Already queued by the delta (an online-only file that changed): never download it twice
     QSet<QString> queued;
     for (const QueuedDownload &entry : std::as_const(m_downloadQueue)) {
@@ -696,14 +744,145 @@ void SyncEngine::applyPins()
             item.quickXorHash = it->remoteHash;
             item.eTag = it->remoteETag;
             item.cTag = it->remoteCTag;
-            m_downloadQueue.append({item, *rel});
-        } else if (!it->dehydrated && pin == StateDb::Pin::OnlineOnly && explicitPin && dehydrate(it.key(), *rel)) {
-            // Free up space was chosen for it (only an explicit choice frees up files that are here)
-            ++freed;
+            queueDownload(item, *rel);
+        } else if (!it->dehydrated && pin == StateDb::Pin::OnlineOnly && explicitPin) {
+            // Free up space was chosen for it (only an explicit choice frees up files that are here).
+            // Not while a program has it open: saving would bring it back as a local change. The
+            // pin stays, so a later cycle frees it.
+            const QString abs = absPath(*rel);
+            if (AutoFreeUp::hasOfficeLock(abs)) {
+                continue;
+            }
+            if (!open) {
+                open = AutoFreeUp::openFiles();
+            }
+            if (open->contains(abs) || open->contains(QFileInfo(abs).canonicalFilePath())) {
+                continue;
+            }
+            if (dehydrate(it.key(), *rel)) {
+                ++freed;
+            }
         }
     }
     if (freed > 0) {
         log(i18np("Freed up the space of 1 file", "Freed up the space of %1 files", freed));
+    }
+}
+
+void SyncEngine::noteOpened(const QString &rel)
+{
+    QMutexLocker locker(&m_requestMutex);
+    m_opened.insert(rel, QDateTime::currentSecsSinceEpoch());
+}
+
+void SyncEngine::autoFreeUp()
+{
+    // What the file watcher saw since the last cycle
+    QHash<QString, qint64> seen;
+    {
+        QMutexLocker locker(&m_requestMutex);
+        seen = std::exchange(m_opened, {});
+    }
+    // Opens are only kept while the feature is on for this location. Switched on, recording starts
+    // anew (files opened while it was off must not look unused); switched off, the records go.
+    const bool active = m_root.filesOnDemand && m_settings.freeUpAfterDays > 0;
+    const QString recording = m_db->meta(QStringLiteral("openedRecording"));
+    if (!active) {
+        if (recording != QLatin1String("0")) {
+            m_db->clearOpened();
+            m_db->setMeta(QStringLiteral("openedRecording"), QStringLiteral("0"));
+        }
+        return;
+    }
+    if (recording != QLatin1String("1")) {
+        m_db->setMeta(QStringLiteral("openedSince"), QString::number(QDateTime::currentSecsSinceEpoch()));
+        m_db->setMeta(QStringLiteral("openedRecording"), QStringLiteral("1"));
+    }
+    if (!seen.isEmpty()) {
+        m_db->noteOpened(seen);
+    }
+    if (m_paused || m_cancel) {
+        return;
+    }
+    const QDateTime now = QDateTime::currentDateTimeUtc();
+    const QDateTime last = QDateTime::fromString(m_db->meta(QStringLiteral("lastAutoFreeUp")), Qt::ISODate);
+    if (last.isValid() && last <= now && last.secsTo(now) < autoFreeUpEverySecs) {
+        return;
+    }
+    m_db->setMeta(QStringLiteral("lastAutoFreeUp"), now.toString(Qt::ISODate));
+    const bool accessTimes = AutoFreeUp::accessTimesKept(m_root.localPath);
+    qint64 nowSecs = now.toSecsSinceEpoch();
+#ifdef GRAPHSYNC_TESTING
+    // Tests only (Debug builds of this project; never in a package): pretend it is this many days later
+    nowSecs += qEnvironmentVariableIntValue("GRAPHSYNC_TEST_FREEUP_DAYS_LATER") * qint64(86400);
+#endif
+    const qint64 cutoff = nowSecs - qint64(m_settings.freeUpAfterDays) * 86400;
+    // Opens are known since then; before it, every file counts as used then
+    const qint64 openedSince = m_db->meta(QStringLiteral("openedSince")).toLongLong();
+    const QHash<QString, qint64> opened = m_db->loadOpened();
+    rebuildPathIndex();
+    std::optional<QSet<QString>> open;
+    QStringList freedRels;
+    int freed = 0;
+    // Changed online and about to be downloaded: freeing it now would be undone right away
+    QSet<QString> queued;
+    for (const QueuedDownload &entry : std::as_const(m_downloadQueue)) {
+        queued.insert(entry.item.id);
+    }
+    qint64 bytes = 0;
+    for (auto it = m_items.begin(); it != m_items.end() && !m_cancel; ++it) {
+        if (it->isFolder || it->dehydrated || m_failedIds.contains(it.key()) || queued.contains(it.key())) {
+            continue;
+        }
+        const auto rel = relPath(it.key());
+        if (!rel || isExcluded(*rel) || isUnderShortcut(*rel) || isLeftAlone(*rel)) {
+            continue;
+        }
+        // Never what the user chose to keep here
+        bool explicitPin = false;
+        const StateDb::Pin pin = effectivePin(*rel, &explicitPin);
+        if (pin == StateDb::Pin::AlwaysKeep) {
+            continue;
+        }
+        const QString abs = absPath(*rel);
+        const auto used = AutoFreeUp::lastUsed(abs, accessTimes);
+        if (!used || std::max({*used, openedSince, opened.value(*rel)}) > cutoff || AutoFreeUp::hasOfficeLock(abs)) {
+            continue;
+        }
+        if (!open) {
+            open = AutoFreeUp::openFiles();
+        }
+        // /proc lists canonical paths; the location may sit behind a symlink
+        if (open->contains(abs) || open->contains(QFileInfo(abs).canonicalFilePath())) {
+            continue;
+        }
+        const qint64 size = it->localSize;
+        // dehydrate() only frees what is in sync (local changes are uploaded first)
+        if (!dehydrate(it.key(), *rel)) {
+            continue;
+        }
+        ++freed;
+        bytes += std::max<qint64>(0, size);
+        // "Available" (opened earlier) on the file itself has done its work
+        if (m_pins.value(*rel) == StateDb::Pin::Available) {
+            m_db->removePins({*rel});
+            m_pins.remove(*rel);
+        }
+        freedRels.append(*rel);
+    }
+    // Records of freed files and of paths no longer known
+    for (auto it = opened.constBegin(); it != opened.constEnd(); ++it) {
+        if (!m_pathToId.contains(it.key())) {
+            freedRels.append(it.key());
+        }
+    }
+    m_db->removeOpened(freedRels);
+    if (freed > 0) {
+        log(i18np("Freed up %2 of 1 file not opened for %3 days",
+                  "Freed up %2 of %1 files not opened for %3 days",
+                  freed,
+                  QLocale().formattedDataSize(bytes),
+                  m_settings.freeUpAfterDays));
     }
 }
 
@@ -725,16 +904,33 @@ void SyncEngine::requestPin(const QString &rel, StateDb::Pin pin)
     QMetaObject::invokeMethod(this, &SyncEngine::processRequests, Qt::QueuedConnection);
 }
 
+void SyncEngine::requestSharingCheck(const QString &rel)
+{
+    {
+        QMutexLocker locker(&m_requestMutex);
+        m_sharingRequests.append(rel);
+    }
+    QMetaObject::invokeMethod(this, &SyncEngine::processRequests, Qt::QueuedConnection);
+}
+
 void SyncEngine::processRequests()
 {
+    // During a cycle only between two batches of downloads (runQueuedDownloads): a network wait
+    // of the cycle also runs queued calls, and a download started there would write the same
+    // temporary file as the batch. The requests wait; the cycle's end takes them.
+    if (m_running && !m_atSafePoint) {
+        return;
+    }
     QStringList hydrate;
     QList<QPair<QString, StateDb::Pin>> pins;
+    QStringList sharing;
     {
         QMutexLocker locker(&m_requestMutex);
         hydrate = std::exchange(m_hydrateRequests, {});
         pins = std::exchange(m_pinRequests, {});
+        sharing = std::exchange(m_sharingRequests, {});
     }
-    if (hydrate.isEmpty() && pins.isEmpty()) {
+    if (hydrate.isEmpty() && pins.isEmpty() && sharing.isEmpty()) {
         return;
     }
     QString error;
@@ -760,10 +956,23 @@ void SyncEngine::processRequests()
     if (!pins.isEmpty()) {
         m_pins = m_db->loadPins();
     }
+    // Opening a file is the user's explicit wish: also while syncing is paused (the pause is for
+    // syncing in the background). Pausing during the download still stops it.
+    const bool liftPause = idle && m_paused && !hydrate.isEmpty();
+    if (liftPause) {
+        m_cancel = false;
+    }
     for (const QString &rel : std::as_const(hydrate)) {
         QString hydrateError;
         const bool ok = hydrateNow(rel, &hydrateError);
         Q_EMIT hydrated(rel, ok, hydrateError);
+    }
+    if (liftPause && m_paused) {
+        m_cancel = true;
+    }
+    sharing.removeDuplicates();
+    for (const QString &rel : std::as_const(sharing)) {
+        checkSharingNow(rel);
     }
     if (idle) {
         m_running = false;
@@ -780,6 +989,43 @@ void SyncEngine::processRequests()
         // asked for while this ran)
         m_pending = false;
         QMetaObject::invokeMethod(this, &SyncEngine::requestSync, Qt::QueuedConnection);
+    }
+}
+
+void SyncEngine::checkSharingNow(const QString &rel)
+{
+    rebuildPathIndex();
+    const QString id = m_pathToId.value(rel);
+    if (id.isEmpty() || id == m_rootItemId) {
+        return;
+    }
+    // Sharing of its own = a permission that is not inherited from a folder above (a link, an
+    // invitation, or SharePoint's broken inheritance); the same items the delta feed marks. The
+    // owner's own permission alone is no sharing.
+    bool shared = false;
+    QString link = itemPath(id) + QStringLiteral("/permissions");
+    while (!link.isEmpty() && !shared) {
+        const GraphResponse response = m_graph->get(link);
+        if (!response.ok()) {
+            qCDebug(GRAPHSYNC) << "Sharing check of" << rel << "failed:" << response.describe();
+            return;
+        }
+        const QJsonObject page = response.json();
+        const QJsonArray permissions = page.value(QLatin1String("value")).toArray();
+        shared = std::any_of(permissions.begin(), permissions.end(), [](const QJsonValue &value) {
+            const QJsonObject permission = value.toObject();
+            const QJsonArray roles = permission.value(QLatin1String("roles")).toArray();
+            const bool ownerOnly = !roles.isEmpty() && std::all_of(roles.begin(), roles.end(), [](const QJsonValue &role) {
+                return role.toString() == QLatin1String("owner");
+            });
+            return !permission.contains(QLatin1String("inheritedFrom")) && !ownerOnly;
+        });
+        link = page.value(QLatin1String("@odata.nextLink")).toString();
+    }
+    ItemRow &row = m_items[id];
+    if (row.shared != shared) {
+        row.shared = shared;
+        saveRow(row);
     }
 }
 
@@ -843,8 +1089,7 @@ bool SyncEngine::isLeftAlone(const QString &rel)
     }
     // A folder holding a .nosync file is left out with everything in it
     QString prefix;
-    const QStringList parts = rel.split(QLatin1Char('/'), Qt::SkipEmptyParts);
-    for (const QString &part : parts) {
+    for (const QString &part : names) {
         prefix = joinRel(prefix, part);
         auto it = m_noSyncCache.constFind(prefix);
         if (it == m_noSyncCache.constEnd()) {
@@ -969,6 +1214,10 @@ QSet<QString> SyncEngine::shortcutPaths() const
 
 bool SyncEngine::isUnderShortcut(const QString &rel) const
 {
+    // Called for every path of a scan: most locations have no shortcuts at all
+    if (m_shortcuts.isEmpty() && m_detachedShortcuts.isEmpty()) {
+        return false;
+    }
     const QSet<QString> paths = shortcutPaths();
     for (const QString &path : paths) {
         if (rel == path || rel.startsWith(path + QLatin1Char('/'))) {
@@ -1012,8 +1261,8 @@ void SyncEngine::applyRemoteShortcut(const DriveItem &item)
     }
 
     // New. Something already at that path would otherwise end up in the other library.
-    if (LocalScanner::stat(absPath(rel))) {
-        makeConflictCopy(rel);
+    if (LocalScanner::stat(absPath(rel)) && makeConflictCopy(rel).isEmpty()) {
+        return;
     }
     Shortcut shortcut;
     shortcut.id = item.id;
@@ -1170,9 +1419,14 @@ QString SyncEngine::itemPath(const QString &id) const
 
 // Rows are written inside a transaction that is committed every few hundred changes, so an
 // interrupted cycle keeps most of its progress
-void SyncEngine::saveRow(const ItemRow &row)
+bool SyncEngine::remoteContentChanged(const ItemRow &row, const DriveItem &item)
 {
-    m_db->upsert(row);
+    // Without a hash online (some SharePoint items) the content tag tells
+    return item.quickXorHash.isEmpty() ? item.cTag != row.remoteCTag : (item.quickXorHash != row.remoteHash || item.size != row.remoteSize);
+}
+
+void SyncEngine::countWrite()
+{
     if (++m_uncommitted >= commitEvery) {
         m_db->commit();
         m_db->begin();
@@ -1180,14 +1434,16 @@ void SyncEngine::saveRow(const ItemRow &row)
     }
 }
 
+void SyncEngine::saveRow(const ItemRow &row)
+{
+    m_db->upsert(row);
+    countWrite();
+}
+
 void SyncEngine::dropRow(const QString &id)
 {
     m_db->remove(id);
-    if (++m_uncommitted >= commitEvery) {
-        m_db->commit();
-        m_db->begin();
-        m_uncommitted = 0;
-    }
+    countWrite();
 }
 
 bool SyncEngine::localChangedSinceBaseline(const ItemRow &row, const LocalEntry &entry, const QString &rel) const
@@ -1195,7 +1451,9 @@ bool SyncEngine::localChangedSinceBaseline(const ItemRow &row, const LocalEntry 
     if (entry.size == row.localSize && entry.mtimeNs == row.localMtimeNs) {
         return false;
     }
-    return QuickXorHash::hashFile(absPath(rel)) != row.localHash;
+    // A file that cannot be read counts as changed: it is never freed up or overwritten
+    const QString hash = QuickXorHash::hashFile(absPath(rel));
+    return hash.isEmpty() || hash != row.localHash;
 }
 
 void SyncEngine::storeLocalBaseline(ItemRow &row, const QString &rel, const QString &hash)
@@ -1210,6 +1468,17 @@ void SyncEngine::storeLocalBaseline(ItemRow &row, const QString &rel, const QStr
     }
 }
 
+QString SyncEngine::knownItemAt(const QString &rel) const
+{
+    const QString name = nameOf(rel);
+    for (auto it = m_items.constBegin(); it != m_items.constEnd(); ++it) {
+        if (it->name == name && relPath(it.key()) == rel) {
+            return it.key();
+        }
+    }
+    return {};
+}
+
 QString SyncEngine::makeConflictCopy(const QString &rel)
 {
     const QString dir = parentOf(rel);
@@ -1221,7 +1490,13 @@ QString SyncEngine::makeConflictCopy(const QString &rel)
     QString candidate;
     for (int n = 1;; ++n) {
         const QString suffix = n == 1 ? QStringLiteral("-%1").arg(host) : QStringLiteral("-%1-%2").arg(host).arg(n);
-        candidate = joinRel(dir, base + suffix + ext);
+        // The copy's name must fit in a file name (255 bytes): a long base name is shortened,
+        // never cut inside a character
+        QString fitted = base;
+        while (!fitted.isEmpty() && QFile::encodeName(fitted + suffix + ext).size() > 255) {
+            fitted.chop(fitted.size() >= 2 && fitted.at(fitted.size() - 1).isLowSurrogate() ? 2 : 1);
+        }
+        candidate = joinRel(dir, fitted + suffix + ext);
         if (!QFileInfo::exists(absPath(candidate))) {
             break;
         }
@@ -1237,16 +1512,42 @@ QString SyncEngine::makeConflictCopy(const QString &rel)
     return candidate;
 }
 
+void SyncEngine::moveWaits(const QString &fromRel, const QString &toRel)
+{
+    // Not applied: the state keeps the old place, and the item is fetched again next cycle
+    markError(fromRel);
+    recordError(i18n("Moving %1 to %2 waits until the item there has moved away", fromRel, toRel));
+}
+
 bool SyncEngine::moveLocal(const QString &fromRel, const QString &toRel)
 {
-    const QString from = absPath(fromRel);
+    m_moveWaits = false;
+    // Parked earlier in this batch because something moved onto its place (see below)
+    const QString from = absPath(m_parked.contains(fromRel) ? m_parked.take(fromRel) : fromRel);
     const QString to = absPath(toRel);
     if (!LocalScanner::stat(from)) {
         return false;
     }
     if (LocalScanner::stat(to)) {
-        // Something unrelated sits at the destination; keep it under a conflict name
-        makeConflictCopy(toRel);
+        if (m_movingAway.contains(Placeholder::realPathOf(toRel)) && !m_parked.contains(toRel)) {
+            // The item there moves away in this same batch (names swapped online): parked under a
+            // visible name until its own move, never taken for a conflict
+            const QString parked = toRel + QStringLiteral(".graphsync-moving");
+            if (::rename(QFile::encodeName(to).constData(), QFile::encodeName(absPath(parked)).constData()) != 0) {
+                markError(toRel);
+                recordError(i18n("Cannot move %1 aside to make room for %2", toRel, fromRel));
+                return false;
+            }
+            m_parked.insert(toRel, parked);
+        } else if (const QString occupant = knownItemAt(Placeholder::realPathOf(toRel)); !occupant.isEmpty()) {
+            // Another synced item is still there (the feed shows the moves of a swap one at a
+            // time): this move waits for it to go, it is no conflict
+            m_moveWaits = true;
+            return false;
+        } else if (makeConflictCopy(toRel).isEmpty()) {
+            // Something unrelated sits at the destination and cannot be kept aside: never replace it
+            return false;
+        }
     }
     QDir().mkpath(QFileInfo(to).absolutePath());
     if (::rename(QFile::encodeName(from).constData(), QFile::encodeName(to).constData()) != 0) {
@@ -1265,14 +1566,25 @@ bool SyncEngine::moveLocal(const QString &fromRel, const QString &toRel)
 
 bool SyncEngine::remotePhase(QString *error)
 {
+    // Only full-listing requests made while this cycle runs count (see m_startOver)
+    m_startOver = false;
     // Graph only lists "Add shortcut to My files" items when asked for them (undocumented; the
     // same header OneDrive's own clients send). A delta position from before this was asked for
     // never delivers the existing shortcuts, so such a root starts over once.
     const bool wantsShortcuts = m_root.kind == QLatin1String("personal");
-    const HeaderList deltaHeaders = wantsShortcuts ? HeaderList{{"Prefer", "Include-Feature=AddToOneDrive"}} : HeaderList{};
+    // hierarchicalsharing: only items with sharing of their own carry the "shared" facet (else
+    // everything in a library would, through the site's members). Graph does not report sharing
+    // changes in the feed for a user's request; they arrive with the item's next change, the
+    // regular full check, or requestSharingCheck() after a share from this computer.
+    const HeaderList deltaHeaders{{"Prefer", wantsShortcuts ? "Include-Feature=AddToOneDrive, hierarchicalsharing" : "hierarchicalsharing"}};
     if (wantsShortcuts && m_db->meta(QStringLiteral("shortcutsInDelta")) != QLatin1String("1")) {
         m_db->setMeta(QStringLiteral("deltaLink"), QString());
         m_db->setMeta(QStringLiteral("shortcutsInDelta"), QStringLiteral("1"));
+    }
+    // A delta position from before the sharing facet was asked for: start over once to learn it
+    if (m_db->meta(QStringLiteral("sharingInDelta")) != QLatin1String("1")) {
+        m_db->setMeta(QStringLiteral("deltaLink"), QString());
+        m_db->setMeta(QStringLiteral("sharingInDelta"), QStringLiteral("1"));
     }
 
     // Regular full check next to the change feed, as a safety net
@@ -1286,7 +1598,7 @@ bool SyncEngine::remotePhase(QString *error)
 
     QString link = m_db->meta(QStringLiteral("deltaLink"));
     bool incremental = !link.isEmpty();
-    const QString freshLink = QStringLiteral("/drives/%1/root/delta?$select=%2").arg(m_root.driveId, DriveItem::selectFields());
+    const QString freshLink = QStringLiteral("/drives/%1/root/delta?$select=%2,shared").arg(m_root.driveId, DriveItem::selectFields());
     if (!incremental) {
         link = freshLink;
     }
@@ -1328,6 +1640,7 @@ bool SyncEngine::remotePhase(QString *error)
         const QJsonArray values = page.value(QLatin1String("value")).toArray();
         for (const QJsonValue &value : values) {
             DriveItem item = DriveItem::fromJson(value.toObject());
+            item.sharingKnown = true;
             ++m_stats.deltaItems;
             // The delta shows the latest state per item; an item can appear more than once
             const auto existing = indexById.constFind(item.id);
@@ -1365,7 +1678,8 @@ bool SyncEngine::remotePhase(QString *error)
 
     // Items that failed in earlier cycles are fetched again one by one
     QHash<QString, int> attempts;
-    const QList<DriveItem> retryItems = fetchRetryItems(&attempts);
+    QStringList unreachable;
+    const QList<DriveItem> retryItems = fetchRetryItems(&attempts, &unreachable);
     for (const DriveItem &item : retryItems) {
         if (!indexById.contains(item.id)) {
             indexById.insert(item.id, changes.size());
@@ -1374,6 +1688,9 @@ bool SyncEngine::remotePhase(QString *error)
     }
 
     m_failedIds.clear();
+    for (const QString &id : std::as_const(unreachable)) {
+        m_failedIds.insert(id);
+    }
     m_db->begin();
     m_uncommitted = 0;
     m_seenRemote.clear();
@@ -1405,6 +1722,14 @@ bool SyncEngine::remotePhase(QString *error)
         }
         if (!DriveItem::isSafeName(item.name) || !DriveItem::isSafeId(item.id)) {
             qCWarning(GRAPHSYNC) << "Skipped an item with an unsafe name or id from the server";
+            // Still there online: a full listing must not take what we have of it for deleted
+            if (DriveItem::isSafeId(item.id)) {
+                m_seenRemote.insert(item.id);
+                if (const auto rel = relPath(item.id); rel && m_items.contains(item.id)) {
+                    markError(*rel);
+                    recordError(i18n("%1 got a name online that cannot be used here (too long or not allowed); it is kept here as it was", *rel));
+                }
+            }
             continue;
         }
         if (item.isRemoteShortcut) {
@@ -1422,6 +1747,18 @@ bool SyncEngine::remotePhase(QString *error)
         qCDebug(GRAPHSYNC) << "Shortcuts to single files are not synced";
     }
 
+    // Known items that move in this batch, by their path before it: one moving onto the place of
+    // another is not a conflict when that one moves away too (moveLocal parks it meanwhile)
+    m_movingAway.clear();
+    m_parked.clear();
+    for (const DriveItem &item : std::as_const(pending)) {
+        const auto oldRel = m_items.contains(item.id) ? relPath(item.id) : std::nullopt;
+        const auto parentRel = item.parentId == m_rootItemId ? std::optional<QString>(QString()) : relPath(item.parentId);
+        if (oldRel && (!parentRel || joinRel(*parentRel, item.name) != *oldRel)) {
+            m_movingAway.insert(*oldRel);
+        }
+    }
+
     bool progress = true;
     while (!pending.isEmpty() && progress && !m_cancel) {
         progress = false;
@@ -1437,11 +1774,31 @@ bool SyncEngine::remotePhase(QString *error)
             if (m_cycleErrors.size() > errorsBefore) {
                 m_failedIds.insert(it->id);
             }
+            // Only the delta feed carries the sharing in the hierarchical sense (see above)
+            // (retried items are fetched one by one and folder listings come from /children: neither says)
+            if (const auto row = m_items.find(it->id); it->sharingKnown && row != m_items.end() && row->shared != it->shared) {
+                row->shared = it->shared;
+                saveRow(*row);
+            }
             it = pending.erase(it);
             progress = true;
         }
     }
+    // Parked items whose own move did not come: back to their place, or kept under a free name
+    for (auto it = m_parked.constBegin(); it != m_parked.constEnd(); ++it) {
+        QString target = it.key();
+        if (LocalScanner::stat(absPath(target))) {
+            const QString name = nameOf(target);
+            target = joinRel(parentOf(target), name + QStringLiteral("-") + QSysInfo::machineHostName());
+        }
+        if (::rename(QFile::encodeName(absPath(it.value())).constData(), QFile::encodeName(absPath(target)).constData()) != 0) {
+            recordError(i18n("%1 was moved aside and could not be put back; it is at %2", it.key(), it.value()));
+        }
+    }
+    m_parked.clear();
+    m_movingAway.clear();
     applyPins();
+    autoFreeUp();
     runQueuedDownloads();
     if (m_lowSpace) {
         // Keep the delta position: the skipped downloads come back once there is room
@@ -1465,6 +1822,14 @@ bool SyncEngine::remotePhase(QString *error)
         }
     }
     saveShortcuts();
+
+    // Stopped half-way (pause, shutdown): what is left was simply not applied yet, so nothing is
+    // taken for deleted; the delta position stays, so the next cycle sees it all again
+    if (m_cancel) {
+        m_db->commit();
+        *error = i18n("Cancelled");
+        return false;
+    }
 
     // Whatever is left lives outside the synced folder (folder roots see the whole drive)
     for (const DriveItem &item : std::as_const(pending)) {
@@ -1508,7 +1873,10 @@ bool SyncEngine::remotePhase(QString *error)
         }
     }
     m_db->setMeta(QStringLiteral("retry"), QString::fromUtf8(QJsonDocument(retry).toJson(QJsonDocument::Compact)));
-    if (!nextDeltaLink.isEmpty()) {
+    if (std::exchange(m_startOver, false)) {
+        // Asked for a full listing while this cycle ran: the next one starts over
+        m_db->setMeta(QStringLiteral("deltaLink"), QString());
+    } else if (!nextDeltaLink.isEmpty()) {
         m_db->setMeta(QStringLiteral("deltaLink"), nextDeltaLink);
         if (!incremental) {
             m_db->setMeta(QStringLiteral("lastFullScan"), QDateTime::currentDateTimeUtc().toString(Qt::ISODate));
@@ -1548,13 +1916,14 @@ void SyncEngine::applyRemoteItem(const DriveItem &item, bool incremental)
         const bool isNew = existing == m_items.end();
         if (!isNew) {
             const auto oldRel = relPath(item.id);
-            if (oldRel && *oldRel != newRel) {
-                moveLocal(*oldRel, newRel);
+            if (oldRel && *oldRel != newRel && !moveLocal(*oldRel, newRel) && m_moveWaits) {
+                moveWaits(*oldRel, newRel);
+                return;
             }
         } else {
             const auto local = LocalScanner::stat(absPath(newRel));
-            if (local && !local->isFolder) {
-                makeConflictCopy(newRel);
+            if (local && !local->isFolder && makeConflictCopy(newRel).isEmpty()) {
+                return;
             }
             if (!QDir().mkpath(absPath(newRel))) {
                 markError(newRel);
@@ -1582,11 +1951,11 @@ void SyncEngine::applyRemoteItem(const DriveItem &item, bool incremental)
         // Online-only: the placeholder follows renames and moves and shows the new size
         ItemRow row = *existing;
         const auto oldRel = relPath(item.id);
-        if (oldRel && *oldRel != newRel) {
-            moveLocal(*oldRel + Placeholder::suffix, newRel + Placeholder::suffix);
+        if (oldRel && *oldRel != newRel && !moveLocal(*oldRel + Placeholder::suffix, newRel + Placeholder::suffix) && m_moveWaits) {
+            moveWaits(*oldRel, newRel);
+            return;
         }
-        const bool contentChanged = item.quickXorHash.isEmpty() ? item.cTag != row.remoteCTag
-                                                                : (item.quickXorHash != row.remoteHash || item.size != row.remoteSize);
+        const bool contentChanged = remoteContentChanged(row, item);
         row.parentId = item.parentId;
         row.name = item.name;
         row.remoteETag = item.eTag;
@@ -1607,7 +1976,7 @@ void SyncEngine::applyRemoteItem(const DriveItem &item, bool incremental)
         saveRow(row);
         bool explicitPin = false;
         if (effectivePin(newRel, &explicitPin) == StateDb::Pin::AlwaysKeep) {
-            m_downloadQueue.append({item, newRel});
+            queueDownload(item, newRel);
         }
         return;
     }
@@ -1615,15 +1984,15 @@ void SyncEngine::applyRemoteItem(const DriveItem &item, bool incremental)
     if (existing != m_items.end()) {
         ItemRow row = *existing;
         const auto oldRel = relPath(item.id);
-        if (oldRel && *oldRel != newRel) {
-            moveLocal(*oldRel, newRel);
+        if (oldRel && *oldRel != newRel && !moveLocal(*oldRel, newRel) && m_moveWaits) {
+            moveWaits(*oldRel, newRel);
+            return;
         }
         row.parentId = item.parentId;
         row.name = item.name;
         m_items.insert(row.id, row);
 
-        const bool contentChanged = item.quickXorHash.isEmpty() ? item.cTag != row.remoteCTag
-                                                                : (item.quickXorHash != row.remoteHash || item.size != row.remoteSize);
+        const bool contentChanged = remoteContentChanged(row, item);
         const auto local = LocalScanner::stat(absPath(newRel));
         if (!contentChanged) {
             row.remoteETag = item.eTag;
@@ -1636,10 +2005,12 @@ void SyncEngine::applyRemoteItem(const DriveItem &item, bool incremental)
             saveRow(row);
             return;
         }
-        if (local && !local->isFolder && localChangedSinceBaseline(row, *local, newRel)) {
-            makeConflictCopy(newRel);
+        // Changed here too: kept aside first; when that is impossible, nothing is downloaded over
+        // it (the item is tried again in the next cycle)
+        if (local && !local->isFolder && localChangedSinceBaseline(row, *local, newRel) && makeConflictCopy(newRel).isEmpty()) {
+            return;
         }
-        m_downloadQueue.append({item, newRel});
+        queueDownload(item, newRel);
         return;
     }
 
@@ -1657,7 +2028,9 @@ void SyncEngine::applyRemoteItem(const DriveItem &item, bool incremental)
         return;
     }
     if (local && local->isFolder) {
-        makeConflictCopy(newRel);
+        if (makeConflictCopy(newRel).isEmpty()) {
+            return;
+        }
     } else if (local) {
         const QString hash = QuickXorHash::hashFile(absPath(newRel));
         if (!hash.isEmpty() && hash == item.quickXorHash) {
@@ -1675,9 +2048,11 @@ void SyncEngine::applyRemoteItem(const DriveItem &item, bool incremental)
             saveRow(row);
             return;
         }
-        makeConflictCopy(newRel);
+        if (makeConflictCopy(newRel).isEmpty()) {
+            return;
+        }
     }
-    m_downloadQueue.append({item, newRel});
+    queueDownload(item, newRel);
 }
 
 void SyncEngine::enumerateNewFolder(const QString &folderId)
@@ -1704,6 +2079,19 @@ void SyncEngine::enumerateNewFolder(const QString &folderId)
     }
 }
 
+void SyncEngine::queueDownload(const DriveItem &item, const QString &rel)
+{
+    // Once per item: a new folder is listed twice in a folder location (its own listing and the
+    // delta), and two downloads of one item would share its temporary file. The latest wins.
+    if (const auto at = m_downloadIndex.constFind(item.id); at != m_downloadIndex.constEnd() && *at < m_downloadQueue.size()
+        && m_downloadQueue.at(*at).item.id == item.id) {
+        m_downloadQueue[*at] = {item, rel};
+        return;
+    }
+    m_downloadIndex.insert(item.id, m_downloadQueue.size());
+    m_downloadQueue.append({item, rel});
+}
+
 QString SyncEngine::tempPathFor(const DriveItem &item, const QString &rel) const
 {
     const QString dir = QFileInfo(absPath(rel)).absolutePath();
@@ -1714,6 +2102,7 @@ QString SyncEngine::tempPathFor(const DriveItem &item, const QString &rel) const
 void SyncEngine::runQueuedDownloads()
 {
     const QList<QueuedDownload> queue = std::exchange(m_downloadQueue, {});
+    m_downloadIndex.clear();
     QStringList busy;
     for (const QueuedDownload &entry : queue) {
         busy.append(entry.rel);
@@ -1722,7 +2111,9 @@ void SyncEngine::runQueuedDownloads()
     const qint64 reserve = qint64(m_settings.minimumFreeSpaceMB) * 1024 * 1024;
     for (qsizetype start = 0; start < queue.size() && !m_cancel && !m_lowSpace; start += transferBatch) {
         // Someone is waiting for a file they opened: that comes first
+        m_atSafePoint = true;
         processRequests();
+        m_atSafePoint = false;
         const qsizetype end = std::min(start + transferBatch, queue.size());
         std::vector<std::unique_ptr<QFile>> files;
         QList<ParallelJob> jobs;
@@ -1816,6 +2207,14 @@ bool SyncEngine::downloadInPieces(const DriveItem &item, const QString &rel)
         if (!response.ok()) {
             break;
         }
+        if (response.status == 200 && offset > 0) {
+            // The whole file instead of the piece asked for (no range support on the way): it
+            // replaces what came before, never appended to it
+            file.resize(0);
+            file.seek(0);
+            m_transfer.bytesDone -= offset;
+            offset = 0;
+        }
         file.write(response.body);
         m_transfer.bytesDone += response.body.size();
         publishTransfer(false);
@@ -1828,6 +2227,9 @@ bool SyncEngine::downloadInPieces(const DriveItem &item, const QString &rel)
     file.close();
     if (m_cancel && response.ok()) {
         response = {0, {}, QStringLiteral("cancelled")};
+    } else if (response.ok() && offset != item.size) {
+        // Short or too long: never taken for the file, also when there is no hash to check it
+        response = {0, {}, QStringLiteral("the download stopped at %1 of %2 bytes").arg(offset).arg(item.size)};
     }
     return finishDownload(item, rel, tmp, response);
 }
@@ -1872,7 +2274,19 @@ bool SyncEngine::finishDownload(const DriveItem &item, const QString &rel, const
         recordError(i18n("Download of %1 did not match the server hash; retrying next cycle", rel));
         return false;
     }
-    setMtime(tmp, item.modified);
+    LocalScanner::setModified(tmp, item.modified);
+    // What is at the path now must be what this download replaces: nothing (a new or online-only
+    // file) or the file as last synced. Anything else is local work since the download was queued
+    // (a new file saved where the placeholder was, an edit meanwhile): it is kept aside first, and
+    // when that is impossible the download is dropped (tried again next cycle).
+    if (const auto here = LocalScanner::stat(abs); here && !here->isFolder) {
+        const auto known = m_items.constFind(item.id);
+        const bool replaceable = known != m_items.constEnd() && !known->dehydrated && !localChangedSinceBaseline(*known, *here, rel);
+        if (!replaceable && makeConflictCopy(rel).isEmpty()) {
+            QFile::remove(tmp);
+            return false;
+        }
+    }
     if (::rename(QFile::encodeName(tmp).constData(), QFile::encodeName(abs).constData()) != 0) {
         QFile::remove(tmp);
         markError(rel);
@@ -1919,12 +2333,40 @@ void SyncEngine::applyRemoteDeletes(const QStringList &ids)
         return a.first < b.first;
     });
     DeleteContext context = deleteContext();
-    for (const auto &[depth, id] : std::as_const(ordered)) {
-        Q_UNUSED(depth)
-        if (m_items.contains(id)) {
-            deleteLocalSubtree(id, false, context, false);
+    // Deleted and made again under the same name in the same batch: the new item has adopted
+    // what is here, so the old one only leaves the state, and nothing here is touched
+    const QSet<QString> gone(ids.cbegin(), ids.cend());
+    QHash<QString, QString> livePaths;
+    for (auto it = m_items.constBegin(); it != m_items.constEnd(); ++it) {
+        if (!gone.contains(it.key())) {
+            if (const auto rel = relPath(it.key())) {
+                livePaths.insert(*rel, it.key());
+            }
         }
     }
+    for (const auto &[depth, id] : std::as_const(ordered)) {
+        Q_UNUSED(depth)
+        if (!m_items.contains(id)) {
+            continue;
+        }
+        if (const auto rel = relPath(id); rel && livePaths.contains(*rel)) {
+            dropSubtreeRows(id, context);
+            continue;
+        }
+        deleteLocalSubtree(id, false, context, false);
+    }
+}
+
+void SyncEngine::dropSubtreeRows(const QString &id, const DeleteContext &context)
+{
+    const QList<QString> children = context.children.values(id);
+    for (const QString &child : children) {
+        if (m_items.contains(child)) {
+            dropSubtreeRows(child, context);
+        }
+    }
+    m_items.remove(id);
+    dropRow(id);
 }
 
 SyncEngine::DeleteContext SyncEngine::deleteContext() const
@@ -1988,7 +2430,8 @@ void SyncEngine::deleteLocalSubtree(const QString &id, bool becauseExcluded, Del
                         *rel);
                 }
             } else {
-                log(i18n("Kept folder %1: deleted online, but it holds new local files", *rel));
+                log(becauseExcluded ? i18n("Kept folder %1: no longer synced, but it holds new or changed files that were not uploaded", *rel)
+                                    : i18n("Kept folder %1: deleted online, but it holds new local files", *rel));
             }
         }
     } else if (row.dehydrated) {
@@ -2011,7 +2454,8 @@ void SyncEngine::deleteLocalSubtree(const QString &id, bool becauseExcluded, Del
                 }
             } else {
                 // Local edits win: the file becomes new and is uploaded again
-                log(i18n("Kept %1: deleted online, but changed here", *rel));
+                log(becauseExcluded ? i18n("Kept %1: no longer synced, but changed here and not uploaded", *rel)
+                                    : i18n("Kept %1: deleted online, but changed here", *rel));
             }
         }
     }
@@ -2143,6 +2587,12 @@ bool SyncEngine::localPhase(QString *error)
     // look deleted here and be deleted online.
     QSet<QString> placeholderPresent;
     QHash<quint64, QString> dehydratedByInode;
+    // Items moved or renamed here whose move online did not (yet) work: never deleted online for
+    // missing at their old path; for folders, everything that was inside them too
+    QSet<QString> keepIds;
+    QStringList keepFolders;
+    // Placeholders moved into a folder that is only created online further down
+    QList<QPair<QString, QString>> laterPlaceholderMoves;
     for (auto it = m_items.begin(); it != m_items.end(); ++it) {
         if (!it->dehydrated) {
             continue;
@@ -2165,10 +2615,16 @@ bool SyncEngine::localPhase(QString *error)
         }
         const QString realRel = Placeholder::realPathOf(key);
         const QString movedId = dehydratedByInode.value(it->inode);
-        if (!movedId.isEmpty() && moveRemote(movedId, realRel)) {
+        if (movedId.isEmpty()) {
+            continue;
+        }
+        keepIds.insert(movedId);
+        if (moveRemote(movedId, realRel)) {
             dehydratedByInode.remove(it->inode);
             placeholderPresent.insert(realRel);
             rebuildPathIndex();
+        } else {
+            laterPlaceholderMoves.append({movedId, realRel});
         }
         // A copy of a placeholder is not a file; *.cloud names never reach the upload below
     }
@@ -2180,16 +2636,28 @@ bool SyncEngine::localPhase(QString *error)
         }
     }
 
-    // Big-delete guard: an unmounted disk or an emptied folder must not wipe the library
-    int missing = 0;
+    // Big-delete guard: an unmounted disk or an emptied folder must not wipe the library. What is
+    // still here under another path (same inode: moved or renamed) is not missing.
+    QSet<quint64> inodesHere;
+    for (auto it = fullScan.constBegin(); it != fullScan.constEnd(); ++it) {
+        inodesHere.insert(it->inode);
+    }
+    QSet<QString> missingIds;
     for (auto it = m_pathToId.constBegin(); it != m_pathToId.constEnd(); ++it) {
-        if (!scan.contains(it.key()) && !placeholderPresent.contains(it.key()) && !isLeftAlone(it.key())) {
-            ++missing;
+        if (!scan.contains(it.key()) && !placeholderPresent.contains(it.key()) && !isLeftAlone(it.key()) && !isExcluded(it.key())
+            && !isUnderShortcut(it.key()) && !keepIds.contains(it.value()) && !inodesHere.contains(m_items.value(it.value()).localInode)) {
+            missingIds.insert(it.value());
         }
     }
+    const int missing = static_cast<int>(missingIds.size());
     const int known = static_cast<int>(m_pathToId.size());
     const int decision = std::exchange(m_bigDeleteDecision, 0);
-    if (missing > bigDeleteMinimum && missing > known * bigDeleteShare && decision != 1) {
+    // Also everything at once in a small location (an unmounted disk whose mount point is left)
+    const bool everything = known > 1 && missing == known;
+    // "Delete online too" answers the question about the items missing then: when more went
+    // missing since (a disk unmounted after the question), it is asked again
+    const bool approved = decision == 1 && QSet<QString>(missingIds).subtract(m_bigDeleteAskedFor).isEmpty();
+    if (((missing > bigDeleteMinimum && missing > known * bigDeleteShare) || everything) && !approved) {
         if (decision == 2) {
             // Restore: forget the missing items so a full resync downloads them again
             m_db->begin();
@@ -2207,6 +2675,7 @@ bool SyncEngine::localPhase(QString *error)
         {
             QMutexLocker locker(&m_statusMutex);
             m_status.insert(QStringLiteral("pendingBigDelete"), QVariantMap{{QStringLiteral("missing"), missing}, {QStringLiteral("known"), known}});
+            m_bigDeleteAskedFor = missingIds;
         }
         Q_EMIT bigDeletePending(missing, known);
         *error = i18n("%1 of %2 synced items disappeared locally. Nothing was deleted online; choose to delete them online or to restore them.",
@@ -2223,6 +2692,8 @@ bool SyncEngine::localPhase(QString *error)
     m_db->begin();
     m_uncommitted = 0;
     QSet<QString> movedIds;
+    // New paths of folders whose move online failed: their contents wait
+    QStringList stalledFolders;
 
     // Folders first, shallowest first, so every parent exists before its children
     QStringList folders;
@@ -2249,14 +2720,25 @@ bool SyncEngine::localPhase(QString *error)
             }
             continue;
         }
+        // Below a folder whose move failed: wait for it (no uploads into a folder not online)
+        if (std::any_of(stalledFolders.cbegin(), stalledFolders.cend(), [&](const QString &stalled) {
+                return rel.startsWith(stalled + QLatin1Char('/'));
+            })) {
+            continue;
+        }
         const QString movedId = inodeToId.value(entry.inode);
         if (!movedId.isEmpty() && m_items.value(movedId).isFolder && !movedIds.contains(movedId)) {
             const auto oldRel = relPath(movedId);
             if (oldRel && !scan.contains(*oldRel)) {
-                if (moveRemote(movedId, rel)) {
-                    movedIds.insert(movedId);
-                    rebuildPathIndex();
+                if (!moveRemoteOrKeep(movedId, *oldRel, rel)) {
+                    // Stays where it is online with everything in it, until the move works
+                    keepIds.insert(movedId);
+                    keepFolders.append(*oldRel);
+                    stalledFolders.append(rel);
+                    continue;
                 }
+                movedIds.insert(movedId);
+                rebuildPathIndex();
                 continue;
             }
         }
@@ -2268,25 +2750,50 @@ bool SyncEngine::localPhase(QString *error)
         createRemoteFolder(rel, entry.inode);
     }
 
+    // Placeholders moved into folders that exist online now
+    for (const auto &[id, realRel] : std::as_const(laterPlaceholderMoves)) {
+        if (moveRemoteOrKeep(id, relPath(id).value_or(QString()), realRel)) {
+            placeholderPresent.insert(realRel);
+            rebuildPathIndex();
+        }
+    }
+
     for (const QString &rel : std::as_const(files)) {
         if (m_cancel) {
             break;
+        }
+        if (std::any_of(stalledFolders.cbegin(), stalledFolders.cend(), [&](const QString &stalled) {
+                return rel.startsWith(stalled + QLatin1Char('/'));
+            })) {
+            continue;
         }
         const LocalEntry entry = scan.value(rel);
         QString id = m_pathToId.value(rel);
         if (id.isEmpty()) {
             const QString movedId = inodeToId.value(entry.inode);
-            if (!movedId.isEmpty() && !m_items.value(movedId).isFolder && !movedIds.contains(movedId)) {
+            // A rename keeps the modification time; a new file that got a deleted file's inode
+            // number does not (then it is a new file, and the old one was deleted)
+            const ItemRow moved = m_items.value(movedId);
+            if (!movedId.isEmpty() && !moved.isFolder && !movedIds.contains(movedId) && (moved.dehydrated || moved.localMtimeNs == entry.mtimeNs)) {
                 const auto oldRel = relPath(movedId);
-                if (oldRel && !scan.contains(*oldRel) && moveRemote(movedId, rel)) {
-                    movedIds.insert(movedId);
-                    id = movedId;
-                    m_pathToId.remove(*oldRel);
-                    m_pathToId.insert(rel, id);
+                if (oldRel && !scan.contains(*oldRel)) {
+                    if (moveRemoteOrKeep(movedId, *oldRel, rel)) {
+                        movedIds.insert(movedId);
+                        id = movedId;
+                        m_pathToId.remove(*oldRel);
+                        m_pathToId.insert(rel, id);
+                    } else {
+                        keepIds.insert(movedId);
+                        continue;
+                    }
                 }
             }
         }
-        if (entry.size <= 4096 && Placeholder::isPlaceholder(absPath(rel))) {
+        // Only a new, changed or online-only path can be a placeholder that lost its suffix;
+        // reading every small file each cycle would also count as opening it (automatic free up)
+        const auto known = id.isEmpty() ? m_items.constEnd() : m_items.constFind(id);
+        const bool syncedAndUnchanged = known != m_items.constEnd() && !known->dehydrated && entry.size == known->localSize && entry.mtimeNs == known->localMtimeNs;
+        if (!syncedAndUnchanged && entry.size <= 4096 && Placeholder::isPlaceholder(absPath(rel))) {
             // A placeholder that lost its .cloud suffix: never upload it; put the suffix back
             // when it stands for an online-only file
             const QString owner = !id.isEmpty() ? id : dehydratedByInode.value(entry.inode);
@@ -2346,10 +2853,22 @@ bool SyncEngine::localPhase(QString *error)
     rebuildPathIndex();
     QStringList deleted;
     for (auto it = m_pathToId.constBegin(); it != m_pathToId.constEnd(); ++it) {
-        // Excluded by the user is not the same as deleted: leave the online copy alone
-        if (!scan.contains(it.key()) && !placeholderPresent.contains(it.key()) && !movedIds.contains(it.value()) && !isLeftAlone(it.key())) {
-            deleted.append(it.value());
+        const QString &rel = it.key();
+        // Excluded by the user, or a shortcut's, is not the same as deleted: leave the online copy alone
+        if (scan.contains(rel) || placeholderPresent.contains(rel) || movedIds.contains(it.value()) || isLeftAlone(rel) || isExcluded(rel)
+            || isUnderShortcut(rel) || keepIds.contains(it.value())) {
+            continue;
         }
+        if (std::any_of(keepFolders.cbegin(), keepFolders.cend(), [&](const QString &folder) {
+                return rel == folder || rel.startsWith(folder + QLatin1Char('/'));
+            })) {
+            continue;
+        }
+        // The scan may be minutes old by now (uploads ran in between): only what is still gone
+        if (LocalScanner::stat(absPath(rel)) || LocalScanner::stat(absPath(rel) + Placeholder::suffix)) {
+            continue;
+        }
+        deleted.append(it.value());
     }
     if (!m_cancel) {
         deleteRemote(deleted);
@@ -2404,6 +2923,22 @@ bool SyncEngine::createRemoteFolder(const QString &rel, quint64 inode)
     return true;
 }
 
+bool SyncEngine::moveRemoteOrKeep(const QString &id, const QString &oldRel, const QString &newRel)
+{
+    // A name the server refuses: the item stays where it is online, and the user is told
+    if (const QString reason = IgnoreRules::invalidRemoteNameReason(nameOf(newRel)); !reason.isEmpty()) {
+        markError(newRel);
+        recordError(i18n("Cannot move or rename %1 to %2 online: the name %3; it stays as it is online", oldRel, newRel, reason));
+        return false;
+    }
+    if (moveRemote(id, newRel)) {
+        return true;
+    }
+    markError(newRel);
+    recordError(i18n("Moving or renaming %1 to %2 online failed; it stays as it is online and is tried again", oldRel, newRel));
+    return false;
+}
+
 bool SyncEngine::moveRemote(const QString &id, const QString &newRel)
 {
     const QString parentRel = parentOf(newRel);
@@ -2440,8 +2975,13 @@ std::optional<DriveItem> SyncEngine::uploadContent(const QString &targetPath, co
                                                    const QByteArray &ifMatch, const QString &conflictBehavior, int *httpStatus)
 {
     QFile file(abs);
-    if (m_offline || !file.open(QIODevice::ReadOnly)) {
+    if (m_offline) {
         *httpStatus = 0;
+        return std::nullopt;
+    }
+    if (!file.open(QIODevice::ReadOnly)) {
+        // A problem with this file here (permissions), not the connection
+        *httpStatus = localReadError;
         return std::nullopt;
     }
     HeaderList headers;
@@ -2520,7 +3060,7 @@ std::optional<DriveItem> SyncEngine::uploadContent(const QString &targetPath, co
     while (offset < total) {
         const QByteArray chunk = file.read(fragmentSizeNow());
         if (chunk.isEmpty()) {
-            *httpStatus = 0;
+            *httpStatus = localReadError;
             return std::nullopt;
         }
         const GraphResponse fragment = m_graph->uploadFragment(uploadUrl, chunk, offset, total);
@@ -2564,6 +3104,11 @@ void SyncEngine::storeUploadSession(const QString &sessionPath, const QJsonObjec
         sessions.insert(sessionPath, session);
     }
     m_db->setMeta(QStringLiteral("uploadSessions"), sessions.isEmpty() ? QString() : QString::fromUtf8(QJsonDocument(sessions).toJson(QJsonDocument::Compact)));
+    // On disk at once: after a crash the upload must be resumed, not started over (which clashes
+    // with the unfinished item SharePoint keeps for the old session)
+    m_db->commit();
+    m_db->begin();
+    m_uncommitted = 0;
 }
 
 bool SyncEngine::uploadNew(const QString &rel)
@@ -2607,6 +3152,20 @@ void SyncEngine::nameTakenOnline(const QString &rel, const QString &parentId, co
         if (!item.isFolder && !item.quickXorHash.isEmpty() && item.quickXorHash == hash) {
             qCInfo(GRAPHSYNC).noquote() << QStringLiteral("[%1]").arg(m_root.name) << "already online with the same content:" << rel;
             finishUploadNew(rel, parentId, hash, before, item);
+            return;
+        }
+        if (!item.isFolder && item.size == 0) {
+            // An upload that never finished (its session was lost): SharePoint keeps an empty item
+            // for it, hidden from folder listings but taking the name. Ours replaces exactly that
+            // item (If-Match); replacing an empty file can never lose content.
+            int status = 0;
+            const auto done = uploadContent(itemPath(item.id) + QStringLiteral("/content"), itemPath(item.id) + QStringLiteral("/createUploadSession"), absPath(rel),
+                                            item.eTag.toUtf8(), QStringLiteral("replace"), &status);
+            if (done) {
+                finishUploadNew(rel, parentId, hash, before, *done);
+                return;
+            }
+            uploadFailed(rel, status);
             return;
         }
     }
@@ -2717,9 +3276,11 @@ bool SyncEngine::uploadExisting(const QString &id, const QString &rel)
                                     row.remoteETag.toUtf8(), QStringLiteral("replace"), &status);
     if (!item) {
         if (status == 412) {
-            // Changed online and here since the last sync (phase 0 T12): keep both
-            makeConflictCopy(rel);
-            restoreFromRemote(id);
+            // Changed online and here since the last sync (phase 0 T12): keep both. Without a
+            // conflict copy the online version is not fetched over the local work.
+            if (!makeConflictCopy(rel).isEmpty()) {
+                restoreFromRemote(id);
+            }
             return false;
         }
         if (status == 404) {
@@ -2784,6 +3345,12 @@ void SyncEngine::deleteRemote(const QStringList &ids)
             // Only delete an online folder that is empty now: anything still inside was added
             // or changed online since our last sync and must not disappear with it
             const GraphResponse children = m_graph->get(itemPath(id) + QStringLiteral("/children?$top=1&$select=id"));
+            if (!children.ok() && children.status != 404) {
+                // Not known whether it is empty: not deleted now, tried again next cycle
+                markError(rel);
+                recordError(i18n("Deleting folder %1 online waits: could not check whether it is empty (%2)", rel, children.describe()));
+                continue;
+            }
             if (children.ok() && !children.json().value(QLatin1String("value")).toArray().isEmpty()) {
                 QDir().mkpath(absPath(rel));
                 log(i18n("Kept folder %1: it was deleted here, but holds files that changed online", rel));
@@ -2817,11 +3384,18 @@ void SyncEngine::refreshPushEndpoint()
     if (m_pushExpires.isValid() && now.secsTo(m_pushExpires) > 5 * 60) {
         return;
     }
-    const GraphResponse response = m_graph->get(QStringLiteral("/drives/%1/root/subscriptions/socketIo").arg(m_root.driveId));
-    if (!response.ok()) {
-        qCInfo(GRAPHSYNC) << "No push endpoint, polling only:" << response.describe();
+    if (m_pushRetryAt.isValid() && now < m_pushRetryAt) {
         return;
     }
+    // Optional (polling covers it): one attempt. While Microsoft's push service is down it answers
+    // 503 with long Retry-After waits, and retrying those held every cycle up for many minutes.
+    const GraphResponse response = m_graph->getOnce(QStringLiteral("/drives/%1/root/subscriptions/socketIo").arg(m_root.driveId));
+    if (!response.ok()) {
+        m_pushRetryAt = now.addSecs(pushRetryMinutes * 60);
+        qCInfo(GRAPHSYNC) << "No push endpoint, polling only; trying again in" << pushRetryMinutes << "minutes:" << response.describe();
+        return;
+    }
+    m_pushRetryAt = {};
     const QJsonObject json = response.json();
     m_pushExpires = QDateTime::fromString(json.value(QLatin1String("expirationDateTime")).toString(), Qt::ISODateWithMs);
     if (!m_pushExpires.isValid()) {

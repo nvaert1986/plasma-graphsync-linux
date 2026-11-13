@@ -4,7 +4,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: plasma-graphsync-linux\n"
-"PO-Revision-Date: 2026-11-12 08:55+0100\n"
+"PO-Revision-Date: 2026-11-13 08:36+0100\n"
 "Last-Translator: plasma-graphsync-linux contributors\n"
 "Language-Team: Dutch\n"
 "Language: nl\n"
@@ -28,6 +28,9 @@ msgstr "%1 staat niet in een gesynchroniseerde map."
 msgid "The account of %1 is no longer on this computer. Sign in to it again in Settings > Accounts."
 msgstr "Het account van %1 staat niet meer op deze computer. Meld je er opnieuw bij aan via Instellingen > Accounts."
 
+msgid "%1 is new or renamed here and not online yet; try again once it is synced."
+msgstr "%1 is hier nieuw of hernoemd en staat nog niet online; probeer het opnieuw zodra het gesynchroniseerd is."
+
 msgid "Cannot write %1: %2"
 msgstr "Kan %1 niet schrijven: %2"
 
@@ -39,6 +42,9 @@ msgstr "Bewerk dit bestand niet en geef het geen andere naam; het wordt vervange
 
 msgid "Checking all files again"
 msgstr "Alle bestanden worden opnieuw gecontroleerd"
+
+msgid "Cannot read %1 here to upload it; check its permissions"
+msgstr "%1 kan hier niet worden gelezen om te uploaden; controleer de rechten"
 
 msgid "Upload of %1 failed (HTTP %2)"
 msgstr "Uploaden van %1 mislukt (HTTP %2)"
@@ -65,6 +71,11 @@ msgid "Freed up the space of 1 file"
 msgid_plural "Freed up the space of %1 files"
 msgstr[0] "De ruimte van 1 bestand vrijgemaakt"
 msgstr[1] "De ruimte van %1 bestanden vrijgemaakt"
+
+msgid "Freed up %2 of 1 file not opened for %3 days"
+msgid_plural "Freed up %2 of %1 files not opened for %3 days"
+msgstr[0] "%2 vrijgemaakt van 1 bestand dat %3 dagen niet geopend is"
+msgstr[1] "%2 vrijgemaakt van %1 bestanden die %3 dagen niet geopend zijn"
 
 msgid "%1 is not known to the sync engine"
 msgstr "%1 is niet bekend bij de synchronisatie"
@@ -111,6 +122,12 @@ msgstr "Kan %1 niet hernoemen om een conflictkopie te bewaren"
 msgid "Conflict: kept your version of %1 as %2"
 msgstr "Conflict: jouw versie van %1 is bewaard als %2"
 
+msgid "Moving %1 to %2 waits until the item there has moved away"
+msgstr "%1 verplaatsen naar %2 wacht tot het item daar is weggegaan"
+
+msgid "Cannot move %1 aside to make room for %2"
+msgstr "%1 kan niet opzij worden gezet om ruimte te maken voor %2"
+
 msgid "Cannot move %1 to %2"
 msgstr "Kan %1 niet verplaatsen naar %2"
 
@@ -140,6 +157,12 @@ msgstr "De gesynchroniseerde map is online verwijderd; deze synchronisatie stopt
 
 msgid "it was removed online"
 msgstr "ze is online verwijderd"
+
+msgid "%1 got a name online that cannot be used here (too long or not allowed); it is kept here as it was"
+msgstr "%1 heeft online een naam gekregen die hier niet kan (te lang of niet toegestaan); het blijft hier zoals het was"
+
+msgid "%1 was moved aside and could not be put back; it is at %2"
+msgstr "%1 is opzij gezet en kon niet worden teruggezet; het staat in %2"
 
 msgid "Gave up on an item after %1 attempts; see the activity list for the error"
 msgstr "Een item is na %1 pogingen opgegeven; zie de activiteitenlijst voor de fout"
@@ -177,6 +200,9 @@ msgstr "Lokale kopie van map %1 verwijderd (wordt niet meer gesynchroniseerd, ve
 msgid "Deleted folder %1 (moved to Trash): it was deleted online"
 msgstr "Map %1 verwijderd (verplaatst naar de prullenbak): de map is online verwijderd"
 
+msgid "Kept folder %1: no longer synced, but it holds new or changed files that were not uploaded"
+msgstr "Map %1 bewaard: wordt niet meer gesynchroniseerd, maar bevat nieuwe of gewijzigde bestanden die niet zijn geüpload"
+
 msgid "Kept folder %1: deleted online, but it holds new local files"
 msgstr "Map %1 bewaard: online verwijderd, maar bevat nieuwe lokale bestanden"
 
@@ -188,6 +214,9 @@ msgstr "%1 verwijderd (verplaatst naar de prullenbak): het bestand is online ver
 
 msgid "Cannot move %1 to the Trash"
 msgstr "Kan %1 niet naar de prullenbak verplaatsen"
+
+msgid "Kept %1: no longer synced, but changed here and not uploaded"
+msgstr "%1 bewaard: wordt niet meer gesynchroniseerd, maar is hier gewijzigd en niet geüpload"
 
 msgid "Kept %1: deleted online, but changed here"
 msgstr "%1 bewaard: online verwijderd, maar hier gewijzigd"
@@ -219,6 +248,12 @@ msgstr "Kan map %1 niet online aanmaken: er bestaat al een bestand met die naam"
 msgid "Created folder %1 online"
 msgstr "Map %1 online aangemaakt"
 
+msgid "Cannot move or rename %1 to %2 online: the name %3; it stays as it is online"
+msgstr "%1 kan online niet worden verplaatst of hernoemd naar %2: de naam %3; het blijft online zoals het is"
+
+msgid "Moving or renaming %1 to %2 online failed; it stays as it is online and is tried again"
+msgstr "%1 online verplaatsen of hernoemen naar %2 is mislukt; het blijft online zoals het is en wordt opnieuw geprobeerd"
+
 msgid "Moving %1 to %2 online failed: %3"
 msgstr "%1 online verplaatsen naar %2 mislukt: %3"
 
@@ -243,6 +278,9 @@ msgstr "Wijzigingen in %1 geüpload"
 msgid "Cannot fetch the online version: %1"
 msgstr "Kan de online versie niet ophalen: %1"
 
+msgid "Deleting folder %1 online waits: could not check whether it is empty (%2)"
+msgstr "Map %1 online verwijderen wacht: kon niet worden gecontroleerd of hij leeg is (%2)"
+
 msgid "Kept folder %1: it was deleted here, but holds files that changed online"
 msgstr "Map %1 bewaard: hier verwijderd, maar bevat bestanden die online zijn gewijzigd"
 
@@ -255,6 +293,51 @@ msgstr "%1 teruggezet: hier verwijderd, maar online gewijzigd"
 msgid "Deleting %1 online failed: %2"
 msgstr "%1 online verwijderen mislukt: %2"
 
+msgid "Desktop"
+msgstr "Bureaublad"
+
+msgid "Documents"
+msgstr "Documenten"
+
+msgid "Pictures"
+msgstr "Afbeeldingen"
+
+msgid "This computer has no such folder."
+msgstr "Deze computer heeft zo'n map niet."
+
+msgid "%1 is not a folder."
+msgstr "%1 is geen map."
+
+msgid "%1 is the home folder; only a folder of its own can be backed up."
+msgstr "%1 is je persoonlijke map; er kan alleen een back-up worden gemaakt van een aparte map."
+
+msgid "%1 is synced already."
+msgstr "%1 wordt al gesynchroniseerd."
+
+msgid "%1 is inside or around the synced folder %2."
+msgstr "%1 ligt in of om de gesynchroniseerde map %2."
+
+msgid "Cannot reach the OneDrive of this account: %1"
+msgstr "De OneDrive van dit account is niet bereikbaar: %1"
+
+msgid "This account has no OneDrive."
+msgstr "Dit account heeft geen OneDrive."
+
+msgid "Cannot find or create the folder %1 in OneDrive: %2"
+msgstr "De map %1 kan in OneDrive niet worden gevonden of gemaakt: %2"
+
+msgid "%1 in OneDrive is a file, not a folder."
+msgstr "%1 in OneDrive is een bestand, geen map."
+
+msgid "The sync service is not running."
+msgstr "De synchronisatieservice draait niet."
+
+msgid "Wait until %1 is up to date, then start the backup again: it will leave this folder out, and changes it has not uploaded yet would stay behind."
+msgstr "Wacht tot %1 bijgewerkt is en start de back-up dan opnieuw: die locatie slaat deze map daarna over, en wijzigingen die nog niet zijn geüpload zouden achterblijven."
+
+msgid "The sync service refused %1."
+msgstr "De synchronisatieservice heeft %1 geweigerd."
+
 msgid "Could not download %1"
 msgstr "Kan %1 niet downloaden"
 
@@ -263,6 +346,9 @@ msgstr "%1 wordt gesynchroniseerd"
 
 msgid "Files are kept in %1"
 msgstr "De bestanden staan in %1"
+
+msgid "the location of this file is no longer synced"
+msgstr "de locatie van dit bestand wordt niet meer gesynchroniseerd"
 
 msgid "Anyone with the link can edit %1."
 msgstr "Iedereen met de link kan %1 bewerken."
@@ -414,11 +500,17 @@ msgstr "Het account van deze locatie staat niet meer op deze computer. Meld je e
 msgid "The app registration is not configured (client and tenant ID)."
 msgstr "De app-registratie is niet ingesteld (client- en tenant-ID)."
 
+msgid "Finish or cancel the sign-in first."
+msgstr "Rond eerst het aanmelden af of annuleer het."
+
 msgid "Enter your work e-mail address."
 msgstr "Vul je zakelijke e-mailadres in."
 
 msgid "That is not a SharePoint address."
 msgstr "Dat is geen SharePoint-adres."
+
+msgid "The account of this backup is no longer on this computer."
+msgstr "Het account van deze back-up staat niet meer op deze computer."
 
 msgid "This link does not contain a SharePoint library."
 msgstr "Deze link bevat geen SharePoint-bibliotheek."
@@ -689,14 +781,35 @@ msgstr "Bijgewerkt, laatst gesynchroniseerd %1"
 msgid "Waiting for the first sync"
 msgstr "Wacht op de eerste synchronisatie"
 
+msgid "Stop Backup?"
+msgstr "Back-up stoppen?"
+
 msgid "Stop Syncing?"
 msgstr "Synchroniseren stoppen?"
+
+msgid "%1 will no longer be backed up to OneDrive. The files stay in %2 and online; changes are no longer synced. The OneDrive location keeps leaving this folder out; to have it there, choose it again under Choose Folders."
+msgstr "Van %1 wordt geen back-up meer gemaakt in OneDrive. De bestanden blijven in %2 en online staan; wijzigingen worden niet meer gesynchroniseerd. De OneDrive-locatie blijft deze map overslaan; wil je hem daar hebben, kies hem dan opnieuw onder Mappen kiezen."
 
 msgid "%1 will no longer be synced. The files stay online, and the local copies in %2 are kept as ordinary files."
 msgstr "%1 wordt niet meer gesynchroniseerd. De bestanden blijven online staan en de lokale kopieën in %2 blijven bewaard als gewone bestanden."
 
+msgid "Stop Backup"
+msgstr "Back-up stoppen"
+
 msgid "Stop Syncing"
 msgstr "Synchroniseren stoppen"
+
+msgid "Back Up Folders to OneDrive"
+msgstr "Back-up van mappen in OneDrive"
+
+msgid "These folders stay where they are on this computer and are kept in OneDrive too, in folders of the same names, like on Windows. Files already in OneDrive there come here as well; files with the same name but other content are kept as a copy. The OneDrive location leaves these folders out, so nothing is synced twice."
+msgstr "Deze mappen blijven op deze computer staan waar ze staan en worden ook in OneDrive bewaard, in mappen met dezelfde namen, zoals op Windows. Bestanden die daar al in OneDrive staan, komen ook hierheen; bestanden met dezelfde naam maar een andere inhoud worden als kopie bewaard. De OneDrive-locatie slaat deze mappen over, zodat niets dubbel wordt gesynchroniseerd."
+
+msgid "%1 is backed up already."
+msgstr "Van %1 wordt al een back-up gemaakt."
+
+msgid "Start Backup"
+msgstr "Back-up starten"
 
 msgid "Sign Out of This Computer?"
 msgstr "Afmelden op deze computer?"
@@ -775,6 +888,9 @@ msgstr "Bibliotheek toevoegen…"
 
 msgid "Use the Sync button in SharePoint, or add a library here."
 msgstr "Gebruik de knop Synchroniseren in SharePoint of voeg hier een bibliotheek toe."
+
+msgid "Back Up Folders…"
+msgstr "Back-up van mappen…"
 
 msgid "No locations of this account are synced."
 msgstr "Er worden geen locaties van dit account gesynchroniseerd."
@@ -901,6 +1017,27 @@ msgstr "Altijd vrij houden:"
 msgctxt "megabytes"
 msgid "MB"
 msgstr "MB"
+
+msgid "Files On-Demand"
+msgstr "Bestanden op aanvraag"
+
+msgid "Free up files not opened for"
+msgstr "Ruimte vrijmaken van bestanden die niet geopend zijn in"
+
+msgid "Only in locations with Files On-Demand switched on. Files you chose to always keep on this computer, files with changes not uploaded yet and files that are open stay. Checked a few times a day."
+msgstr "Alleen in locaties waar Bestanden op aanvraag aanstaat. Bestanden die je altijd op deze computer wilt houden, bestanden met wijzigingen die nog niet zijn geüpload en bestanden die open zijn, blijven staan. Wordt een paar keer per dag gecontroleerd."
+
+msgctxt "free up files not opened for"
+msgid "day"
+msgid_plural "days"
+msgstr[0] "dag"
+msgstr[1] "dagen"
+
+msgid "Show previews of online-only files in Dolphin"
+msgstr "Voorbeelden tonen in Dolphin van bestanden die alleen online staan"
+
+msgid "Microsoft makes the previews; they are fetched without downloading the files. Takes effect when Dolphin is started again."
+msgstr "Microsoft maakt de voorbeelden; ze worden opgehaald zonder de bestanden te downloaden. Werkt nadat Dolphin opnieuw is gestart."
 
 msgid "App Registration"
 msgstr "App-registratie"

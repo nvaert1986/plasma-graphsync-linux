@@ -62,6 +62,10 @@ public:
 
     // pathOrUrl is either a Graph path ("/drives/x/root") or an absolute URL (nextLink etc.)
     GraphResponse get(const QString &pathOrUrl, const HeaderList &headers = {});
+    // One attempt: no retries, no waiting for throttling, and a refusal does not hold back this
+    // account's other requests. For optional requests (the push endpoint) that are simply tried
+    // again later.
+    GraphResponse getOnce(const QString &pathOrUrl);
     GraphResponse postJson(const QString &path, const QJsonObject &body, const HeaderList &headers = {});
     GraphResponse patchJson(const QString &path, const QJsonObject &body, const HeaderList &headers = {});
     GraphResponse put(const QString &path, const QByteArray &data, const HeaderList &headers = {});
@@ -94,7 +98,7 @@ private:
     QNetworkRequest buildRequest(const QUrl &url, const HeaderList &headers, bool authenticated, QString *tokenError);
 
     GraphResponse send(const QByteArray &verb, const QString &pathOrUrl, const QByteArray &body, const HeaderList &headers,
-                       bool authenticated, QIODevice *sink);
+                       bool authenticated, QIODevice *sink, bool once = false);
 
     Auth *m_auth;
     QNetworkAccessManager m_nam;

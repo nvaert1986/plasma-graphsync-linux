@@ -7,6 +7,7 @@
 #include <QDir>
 #include <QFile>
 
+#include <fcntl.h>
 #include <sys/stat.h>
 
 namespace GraphSync::LocalScanner
@@ -64,6 +65,16 @@ QHash<QString, LocalEntry> scan(const QString &root, const QSet<QString> &skip)
     QHash<QString, LocalEntry> out;
     scanDir(root, QString(), out, skip);
     return out;
+}
+
+bool setModified(const QString &absolutePath, const QDateTime &time)
+{
+    if (!time.isValid()) {
+        return false;
+    }
+    const qint64 ms = time.toMSecsSinceEpoch();
+    const struct timespec times[2] = {{0, UTIME_OMIT}, {static_cast<time_t>(ms / 1000), static_cast<long>((ms % 1000) * 1000000)}};
+    return ::utimensat(AT_FDCWD, QFile::encodeName(absolutePath).constData(), times, 0) == 0;
 }
 
 }

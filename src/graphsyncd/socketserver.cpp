@@ -23,11 +23,7 @@ namespace GraphSync
 namespace
 {
 constexpr int updateCoalesceMs = 500;
-
-bool isUnder(const QString &path, const QString &root)
-{
-    return path == root || path.startsWith(root + QLatin1Char('/'));
-}
+constexpr qint64 noSyncCacheMs = 3000;
 
 bool anyUnder(const QSet<QString> &paths, const QString &rel)
 {
@@ -134,7 +130,15 @@ void SocketServer::onNewConnection()
 void SocketServer::onReadyRead(QLocalSocket *socket)
 {
     while (socket->canReadLine()) {
-        const QString line = QString::fromUtf8(socket->readLine()).trimmed();
+        // Only the line end goes: spaces at either end belong to the file name
+        QByteArray raw = socket->readLine();
+        if (raw.endsWith('\n')) {
+            raw.chop(1);
+        }
+        if (raw.endsWith('\r')) {
+            raw.chop(1);
+        }
+        const QString line = QString::fromUtf8(raw);
         if (!line.isEmpty()) {
             handleLine(socket, line);
         }
@@ -155,25 +159,60 @@ void SocketServer::handleLine(QLocalSocket *socket, const QString &line)
     }
 }
 
+const RootController *SocketServer::ownerOf(const QString &path) const
+{
+    // The longest match: a shortcut's folder lies inside the OneDrive that holds it
+    QString rel;
+    return m_daemon->controllerFor(path, &rel);
+}
+
+bool SocketServer::hasNoSyncMarker(const QString &folder) const
+{
+    // Dolphin asks for every item of a folder at once: each folder above them is looked at once,
+    // and again after a few seconds (a .nosync file may come or go)
+    if (!m_noSyncAge.isValid() || m_noSyncAge.hasExpired(noSyncCacheMs)) {
+        m_noSync.clear();
+        m_noSyncAge.start();
+    }
+    auto it = m_noSync.constFind(folder);
+    if (it == m_noSync.constEnd()) {
+        it = m_noSync.insert(folder, QFileInfo::exists(folder + QLatin1Char('/') + IgnoreRules::noSyncMarker));
+    }
+    return *it;
+}
+
 QString SocketServer::statusFor(const QString &path) const
 {
-    // Longest matching root wins (a folder root can sit inside nothing else, but be safe)
-    const RootController *owner = nullptr;
-    const QList<RootController *> roots = m_daemon->controllers();
-    for (const RootController *root : roots) {
-        if (isUnder(path, root->localPath()) && (!owner || root->localPath().size() > owner->localPath().size())) {
-            owner = root;
-        }
-    }
+    const RootController *owner = ownerOf(path);
     if (!owner) {
         return QStringLiteral("NOP");
     }
-
-    const QVariantMap rootStatus = owner->status();
-    const QString state = rootStatus.value(QStringLiteral("state")).toString();
     const auto snapshot = owner->snapshot();
+    const QString status = syncStatusFor(path, owner, snapshot);
+    if (status == QLatin1String("NOP") || status == QLatin1String("IGNORE") || status.endsWith(QLatin1String("+ROOT"))) {
+        return status;
+    }
+    // Shared with others: the item itself or a folder above it has sharing of its own
+    if (!snapshot || snapshot->shared.isEmpty()) {
+        return status;
+    }
+    QString rel = path.mid(owner->localPath().size() + 1);
+    if (Placeholder::hasSuffix(rel) && snapshot->dehydrated.contains(Placeholder::realPathOf(rel))) {
+        rel = Placeholder::realPathOf(rel);
+    }
+    for (QString part = rel; !part.isEmpty(); part = part.section(QLatin1Char('/'), 0, -2)) {
+        if (snapshot->shared.contains(part)) {
+            return status + QStringLiteral("+SHARED");
+        }
+    }
+    return status;
+}
 
+QString SocketServer::syncStatusFor(const QString &path, const RootController *owner, const std::shared_ptr<const SyncEngine::StatusSnapshot> &snapshot) const
+{
     if (path == owner->localPath()) {
+        // A copy of the whole engine status: only for the root itself
+        const QString state = owner->status().value(QStringLiteral("state")).toString();
         QString status = QStringLiteral("OK");
         if (state == QLatin1String("error") || state == QLatin1String("halted") || (snapshot && !snapshot->errors.isEmpty())) {
             status = QStringLiteral("ERROR");
@@ -204,7 +243,7 @@ QString SocketServer::statusFor(const QString &path) const
     QString folder = owner->localPath();
     for (const QString &part : parts) {
         folder += QLatin1Char('/') + part;
-        if (QFileInfo::exists(folder + QLatin1Char('/') + IgnoreRules::noSyncMarker)) {
+        if (hasNoSyncMarker(folder)) {
             return QStringLiteral("IGNORE");
         }
     }

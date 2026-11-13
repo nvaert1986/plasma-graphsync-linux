@@ -36,6 +36,9 @@ struct RootConfig {
     // The account (GraphCore::Account id in graphaccountsrc) this location syncs with; empty for
     // a location set up while signed out, until an account signs in and claims it
     QString accountId;
+    // PC folder backup: "desktop", "documents" or "pictures" for that folder of this computer kept
+    // in the account's OneDrive (kind "folder"); empty for other locations
+    QString backup;
 };
 
 // The app registration and tenant a sign-in uses. objectId is the signed-in user (empty before
@@ -66,6 +69,8 @@ struct GeneralConfig {
     // Bandwidth limits for all transfers together, in KB/s; 0 = no limit
     int downloadLimitKBps = 0;
     int uploadLimitKBps = 0;
+    // Files On-Demand: files not opened for this many days become online-only again; 0 = never
+    int freeUpAfterDays = 0;
 };
 
 namespace Config
@@ -117,6 +122,8 @@ enum class RootPathProblem {
     Overlaps,
 };
 RootPathProblem rootPathProblem(const QString &path);
+// path is a location, lies inside one or holds one
+bool overlapsRoot(const QString &path);
 // The location holding path (the longest match; a Files On-Demand placeholder stands for its real
 // file); id empty when none
 RootConfig rootForPath(const QString &path);

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "placeholder.h"
+#include "localscanner.h"
 
 #include <KLocalizedString>
 
@@ -10,8 +11,6 @@
 #include <QLocale>
 #include <QSaveFile>
 
-#include <fcntl.h>
-#include <sys/stat.h>
 
 #include <algorithm>
 
@@ -58,11 +57,7 @@ bool write(const QString &realPath, qint64 size, const QDateTime &modified, QStr
         return false;
     }
     // The real file's date, so sorting by date in Dolphin keeps making sense
-    if (modified.isValid()) {
-        const qint64 ns = modified.toMSecsSinceEpoch() * 1000000LL;
-        const struct timespec times[2] = {{0, UTIME_OMIT}, {static_cast<time_t>(ns / 1000000000LL), static_cast<long>(ns % 1000000000LL)}};
-        utimensat(AT_FDCWD, QFile::encodeName(pathFor(realPath)).constData(), times, 0);
-    }
+    LocalScanner::setModified(pathFor(realPath), modified);
     return true;
 }
 

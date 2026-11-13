@@ -159,6 +159,11 @@ GraphResponse GraphClient::get(const QString &pathOrUrl, const HeaderList &heade
     return send("GET", pathOrUrl, {}, headers, true, nullptr);
 }
 
+GraphResponse GraphClient::getOnce(const QString &pathOrUrl)
+{
+    return send("GET", pathOrUrl, {}, {}, true, nullptr, true);
+}
+
 GraphResponse GraphClient::postJson(const QString &path, const QJsonObject &body, const HeaderList &headers)
 {
     HeaderList all = headers;
@@ -406,7 +411,7 @@ void GraphClient::finishParallelReply(ParallelState *state, qsizetype index, QNe
 }
 
 GraphResponse GraphClient::send(const QByteArray &verb, const QString &pathOrUrl, const QByteArray &body, const HeaderList &headers,
-                                bool authenticated, QIODevice *sink)
+                                bool authenticated, QIODevice *sink, bool once)
 {
     QUrl url(pathOrUrl.startsWith(QLatin1String("https://")) ? pathOrUrl : baseUrl() + pathOrUrl);
     bool refreshedAfter401 = false;
@@ -417,6 +422,10 @@ GraphResponse GraphClient::send(const QByteArray &verb, const QString &pathOrUrl
         if (m_cancel && m_cancel->load()) {
             response = {0, {}, QStringLiteral("cancelled")};
             return response;
+        }
+        if (once && throttleWaitMs(m_auth) > 0) {
+            // Throttled by Microsoft: an optional request is not worth the wait
+            return {429, {}, QStringLiteral("throttled; not tried")};
         }
         for (qint64 waitMs = throttleWaitMs(m_auth); waitMs > 0 && !(m_cancel && m_cancel->load()); waitMs = throttleWaitMs(m_auth)) {
             QThread::msleep(std::min<qint64>(waitMs, 100));
@@ -453,7 +462,18 @@ GraphResponse GraphClient::send(const QByteArray &verb, const QString &pathOrUrl
         }
         QEventLoop loop;
         QObject::connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
+        // Cancelled (pause, stop, shutdown): the running request is broken off, not waited for
+        QTimer cancelCheck;
+        if (m_cancel) {
+            QObject::connect(&cancelCheck, &QTimer::timeout, reply, [this, reply] {
+                if (m_cancel->load()) {
+                    reply->abort();
+                }
+            });
+            cancelCheck.start(100);
+        }
         loop.exec();
+        cancelCheck.stop();
 
         response.status = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
         if (reply->error() != QNetworkReply::NoError && response.ok()) {
@@ -468,15 +488,19 @@ GraphResponse GraphClient::send(const QByteArray &verb, const QString &pathOrUrl
             }
             response.body.clear();
         } else {
-            response.body = reply->readAll();
+            // Nothing to read after a request we broke off
+            response.body = reply->isOpen() ? reply->readAll() : QByteArray();
         }
         if (m_observer && verb == "PUT" && response.ok()) {
             m_observer(body.size());
         }
-        response.errorString = reply->errorString();
+        const QNetworkReply::NetworkError netError = reply->error();
+        // Broken off above: the same answer as a request that never started (callers tell
+        // "cancelled" apart from being offline)
+        response.errorString = netError == QNetworkReply::OperationCanceledError && m_cancel && m_cancel->load() ? QStringLiteral("cancelled")
+                                                                                                                  : reply->errorString();
         const QByteArray retryAfter = reply->rawHeader("Retry-After");
         const QUrl location = reply->attribute(QNetworkRequest::RedirectionTargetAttribute).toUrl();
-        const QNetworkReply::NetworkError netError = reply->error();
         reply->deleteLater();
 
         if (response.status >= 300 && response.status < 400 && location.isValid() && redirects < 5
@@ -499,7 +523,7 @@ GraphResponse GraphClient::send(const QByteArray &verb, const QString &pathOrUrl
         // the HTTP/2 connection with GOAWAY, ...): retry, unless we cancelled it ourselves
         const bool transient = isRetryableStatus(response.status)
             || (response.status == 0 && netError != QNetworkReply::OperationCanceledError && !(m_cancel && m_cancel->load()));
-        if (!transient || attempt >= (isThrottled(response.status) ? maxThrottledAttempts : maxAttempts)) {
+        if (!transient || once || attempt >= (isThrottled(response.status) ? maxThrottledAttempts : maxAttempts)) {
             return response;
         }
 

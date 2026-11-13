@@ -4,7 +4,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: plasma_applet_io.github.nvaert1986.graphsync.tray\n"
-"PO-Revision-Date: 2026-11-12 08:55+0100\n"
+"PO-Revision-Date: 2026-11-13 08:36+0100\n"
 "Last-Translator: plasma-graphsync-linux contributors\n"
 "Language-Team: Dutch\n"
 "Language: nl\n"

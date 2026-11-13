@@ -10,5 +10,9 @@ ecm_add_tests(
     driveitemtest.cpp
     accountstest.cpp
     authlocktest.cpp
+    autofreeuptest.cpp
+    folderbackuptest.cpp
+    dolphinpreviewstest.cpp
+    graphclienttest.cpp
     LINK_LIBRARIES graphsynccore Qt6::Test
 )

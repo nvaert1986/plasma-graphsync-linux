@@ -9,6 +9,6 @@ qt_add_resources(kcm_graphsync "kcm_graphsync_shared"
     PREFIX "/kcm/kcm_graphsync"
     BASE ../app/qml
     FILES ../app/qml/SettingsView.qml)
-target_link_libraries(kcm_graphsync PRIVATE graphsynccore Qt6::DBus Qt6::Gui KF6::KCMUtilsQuick KF6::CoreAddons KF6::I18n)
+target_link_libraries(kcm_graphsync PRIVATE graphsynccore Qt6::DBus Qt6::Gui KF6::KCMUtilsQuick KF6::CoreAddons KF6::I18n KF6::KIOGui)
 # KCMs use their plugin id as translation catalog
 target_compile_definitions(kcm_graphsync PRIVATE TRANSLATION_DOMAIN="kcm_graphsync")

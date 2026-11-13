@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "rootcontroller.h"
+#include "placeholder.h"
 #include "localwatcher.h"
 #include "graphsync_debug.h"
 #include "pushclient.h"
@@ -33,6 +34,10 @@ RootController::RootController(const RootConfig &root, std::shared_ptr<Auth> aut
     m_engine->moveToThread(&m_thread);
     connect(&m_thread, &QThread::finished, m_engine, &QObject::deleteLater);
     connect(m_engine, &SyncEngine::statusChanged, this, [this](const QVariantMap &status) {
+        // After a cycle: opens are only watched while automatic free up space is on here
+        if (m_watcher && status.value(QStringLiteral("state")) != QLatin1String("syncing")) {
+            m_watcher->setTrackOpens(status.value(QStringLiteral("filesOnDemand")).toBool() && Config::general().freeUpAfterDays > 0);
+        }
         if (status.value(QStringLiteral("state")) == QLatin1String("error")) {
             const QStringList errors = status.value(QStringLiteral("lastErrors")).toStringList();
             for (const QString &error : errors) {
@@ -54,6 +59,13 @@ RootController::RootController(const RootConfig &root, std::shared_ptr<Auth> aut
             m_poll.start(interval);
         }
         Q_EMIT statusChanged();
+        // Detaching: done after a whole cycle that started after the request and ended cleanly
+        if (m_drainSince.isValid() && !m_drained && status.value(QStringLiteral("state")) == QLatin1String("idle")
+            && status.value(QStringLiteral("lastErrors")).toStringList().isEmpty()
+            && QDateTime::fromString(status.value(QStringLiteral("cycleStarted")).toString(), Qt::ISODateWithMs) >= m_drainSince) {
+            m_drained = true;
+            Q_EMIT drained();
+        }
     });
     connect(m_engine, &SyncEngine::activityEntry, this, &RootController::activityEntry);
     connect(m_engine, &SyncEngine::conflictCreated, this, &RootController::conflictCreated);
@@ -94,11 +106,29 @@ RootController::RootController(const RootConfig &root, std::shared_ptr<Auth> aut
 
 RootController::~RootController()
 {
+    beginStop();
+    m_thread.wait();
+}
+
+void RootController::beginStop()
+{
+    if (m_stopping) {
+        return;
+    }
+    m_stopping = true;
     m_push->stop();
     // Abort a running transfer, then let the worker finish its cycle and exit
     m_engine->setPaused(true);
     m_thread.quit();
-    m_thread.wait();
+}
+
+void RootController::drain()
+{
+    if (!m_drainSince.isValid()) {
+        m_drainSince = QDateTime::currentDateTimeUtc();
+        qCInfo(GRAPHSYNC) << "Shortcut" << m_root.name << "was removed; uploading its last changes first";
+    }
+    scheduleSync(0);
 }
 
 QString RootController::id() const
@@ -124,6 +154,15 @@ void RootController::startWatcher()
     m_watcher = new LocalWatcher(m_root.localPath, this);
     connect(m_watcher, &LocalWatcher::changed, this, [this] {
         scheduleSync(localDebounceMs);
+    });
+    // Automatic free up space: what programs opened. Not placeholders: indexers read those, and
+    // opening one downloads the file, which counts as use by itself
+    connect(m_watcher, &LocalWatcher::filesOpened, this, [this](const QStringList &paths) {
+        for (const QString &path : paths) {
+            if (path.startsWith(m_root.localPath + QLatin1Char('/')) && !Placeholder::hasSuffix(path)) {
+                m_engine->noteOpened(path.mid(m_root.localPath.size() + 1));
+            }
+        }
     });
     connect(m_watcher, &LocalWatcher::rootLost, this, [this] {
         // Never let a vanished folder turn into "delete everything online"
@@ -187,6 +226,11 @@ void RootController::pin(const QString &rel, StateDb::Pin pin)
     m_engine->requestPin(rel, pin);
 }
 
+void RootController::checkSharing(const QString &rel)
+{
+    m_engine->requestSharingCheck(rel);
+}
+
 void RootController::setExcludedPaths(const QStringList &paths)
 {
     QMetaObject::invokeMethod(m_engine, [engine = m_engine, paths] {
@@ -204,6 +248,11 @@ void RootController::resolveBigDelete(const QString &action)
 void RootController::setPaused(bool paused)
 {
     m_paused = paused;
+    // Stopped because the folder was removed or moved: stays stopped whatever the pause state;
+    // only Check All Files Again (recheck) lifts that, once the folder is back
+    if (!m_haltReason.isEmpty()) {
+        return;
+    }
     // setPaused only flips atomics and posts a sync, so calling it across threads is safe
     m_engine->setPaused(paused);
     if (!paused) {

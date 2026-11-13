@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <QDBusMessage>
 #include <QObject>
 #include <QStringList>
 
@@ -40,6 +41,9 @@ public Q_SLOTS:
     Q_SCRIPTABLE void Quit();
     // {"command": "pause", "minutes": 120} and the like; returns a JSON result
     Q_SCRIPTABLE QString Command(const QString &json);
+    // Dolphin's thumbnailer: the thumbnail of an online-only file (placeholder path) as PNG or
+    // JPEG bytes, empty when there is none; size is the longest side wanted. Answered later.
+    Q_SCRIPTABLE QByteArray Thumbnail(const QString &path, int size, const QDBusMessage &message);
 
 Q_SIGNALS:
     Q_SCRIPTABLE void StatusChanged(const QString &status);

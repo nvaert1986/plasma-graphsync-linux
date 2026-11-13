@@ -3,12 +3,17 @@
 
 #include "backend.h"
 #include "config.h"
+#include "dbusnames.h"
+#include "dolphinpreviews.h"
 #include "driveitem.h"
+#include "folderbackup.h"
 #include "graphsync_debug.h"
 #include "migration.h"
 #include "placeholder.h"
 
+#include <KConfig>
 #include <KConfigGroup>
+#include <KIO/PreviewJob>
 #include <KFormat>
 #include <KLocalizedString>
 #include <KSharedConfig>
@@ -42,13 +47,13 @@ namespace GraphSync
 
 namespace
 {
-const QString service = QStringLiteral("io.github.nvaert1986.GraphSync");
-const QString objectPath = QStringLiteral("/GraphSync");
+const QString service = DBusNames::service();
+const QString objectPath = DBusNames::path();
 
 QDBusInterface *daemon(QObject *parent)
 {
     // Calling a method starts graphsyncd through D-Bus activation when it is not running
-    return new QDBusInterface(service, objectPath, service, QDBusConnection::sessionBus(), parent);
+    return new QDBusInterface(service, objectPath, DBusNames::interfaceName(), QDBusConnection::sessionBus(), parent);
 }
 }
 
@@ -65,7 +70,7 @@ AuthConfig startAuth()
 }
 }
 
-Backend::Backend(QObject *parent)
+Backend::Backend(Use use, QObject *parent)
     : QObject(parent)
     , m_auth(std::make_unique<Auth>(startAuth()))
     , m_graph(std::make_unique<GraphClient>(m_auth.get()))
@@ -75,16 +80,17 @@ Backend::Backend(QObject *parent)
     m_itemService->setGraphProvider([this](const QString &accountId) {
         return graphForAccount(accountId);
     });
-    removeVersionCopies(24 * 60 * 60);
-    // An install of plasma-onedrive-linux waiting to be taken over: in the background (stopping
-    // the old daemon can take a while), with a page that says so instead of the setup wizard
-    if (Migration::pending()) {
-        startImport();
-    }
-
-    // Signed in by graphsyncctl or an older version: the organisation name is still missing
-    if (signedIn() && Config::account().organization.isEmpty()) {
-        fetchOrganization();
+    if (use == Use::Window) {
+        removeVersionCopies(24 * 60 * 60);
+        // An install of plasma-onedrive-linux waiting to be taken over: in the background (stopping
+        // the old daemon can take a while), with a page that says so instead of the setup wizard
+        if (Migration::pending()) {
+            startImport();
+        }
+        // Signed in by graphsyncctl or an older version: the organisation name is still missing
+        if (signedIn() && Config::account().organization.isEmpty()) {
+            fetchOrganization();
+        }
     }
 
     auto *watcher = new QDBusServiceWatcher(service, QDBusConnection::sessionBus(), QDBusServiceWatcher::WatchForOwnerChange, this);
@@ -126,9 +132,8 @@ void Backend::onStatusChanged(const QString &json)
     const QString account = m_status.value(QStringLiteral("account")).toMap().value(QStringLiteral("id")).toString();
     if (account != previous.value(QStringLiteral("account")).toMap().value(QStringLiteral("id")).toString()
         || m_status.value(QStringLiteral("signedIn")) != previous.value(QStringLiteral("signedIn"))) {
-        // Not while a sign-in runs or a new account is being added: m_auth is busy with that one
-        if (!busy() && m_loginHint.isEmpty() && Config::account().objectId != m_auth->config().objectId) {
-            m_auth->setConfig(Config::currentAuth());
+        if (Config::account().objectId != m_auth->config().objectId) {
+            followCurrentAccount();
         }
         resetAccountClients();
         Q_EMIT accountChanged();
@@ -234,6 +239,29 @@ void Backend::setMinimumFreeSpace(int megabytes)
     });
 }
 
+int Backend::freeUpAfterDays() const
+{
+    return Config::general().freeUpAfterDays;
+}
+
+void Backend::setFreeUpAfterDays(int days)
+{
+    updateGeneral([days](GeneralConfig &general) {
+        general.freeUpAfterDays = std::clamp(days, 0, 3650);
+    });
+}
+
+bool Backend::dolphinPreviews() const
+{
+    return DolphinPreviews::enabled();
+}
+
+void Backend::setDolphinPreviews(bool on)
+{
+    DolphinPreviews::setEnabled(on, KIO::PreviewJob::defaultPlugins());
+    Q_EMIT advancedChanged();
+}
+
 QString Backend::excludePatterns() const
 {
     return Config::general().excludePatterns.join(QLatin1Char('\n'));
@@ -315,9 +343,11 @@ QString Backend::accountOfPath(const QString &path)
 ItemService::Item Backend::item(const QString &path)
 {
     const QString key = QDir::cleanPath(path);
+    // Briefly: the same window asks for the item several times, but a file can be renamed,
+    // replaced or synced in the meantime
     const auto cached = m_items.constFind(key);
-    if (cached != m_items.constEnd()) {
-        return *cached;
+    if (cached != m_items.constEnd() && !cached->age.hasExpired(itemCacheMs)) {
+        return cached->item;
     }
     setBusy(true);
     QString error;
@@ -325,7 +355,9 @@ ItemService::Item Backend::item(const QString &path)
     setBusy(false);
     setError(error);
     if (found.valid()) {
-        m_items.insert(key, found);
+        CachedItem entry{found, {}};
+        entry.age.start();
+        m_items.insert(key, entry);
     }
     return found;
 }
@@ -335,6 +367,13 @@ bool Backend::sendCommand(const QJsonObject &command)
     // Starts graphsyncd through D-Bus activation when it is not running
     const QString reply = callDaemon(QStringLiteral("Command"), {QString::fromUtf8(QJsonDocument(command).toJson(QJsonDocument::Compact))});
     return QJsonDocument::fromJson(reply.toUtf8()).object().value(QLatin1String("ok")).toBool();
+}
+
+void Backend::sharingChanged(const QString &path)
+{
+    m_items.remove(QDir::cleanPath(path));
+    // The emblem: Graph's change feed does not report sharing changes
+    sendCommand({{QStringLiteral("command"), QStringLiteral("sharingChanged")}, {QStringLiteral("path"), QDir::cleanPath(path)}});
 }
 
 QVariantMap Backend::itemInfo(const QString &path)
@@ -364,6 +403,9 @@ QVariantMap Backend::createLink(const QString &path, const QString &type, const 
     QVariantMap link = m_itemService->createLink(found, type, scope, expiry, &error);
     setBusy(false);
     setError(error);
+    if (error.isEmpty()) {
+        sharingChanged(path);
+    }
     link.insert(QStringLiteral("ok"), error.isEmpty());
     return link;
 }
@@ -402,6 +444,9 @@ bool Backend::removePermission(const QString &path, const QString &permissionId)
     const bool removed = m_itemService->removePermission(found, permissionId, &error);
     setBusy(false);
     setError(error);
+    if (removed) {
+        sharingChanged(path);
+    }
     return removed;
 }
 
@@ -416,6 +461,9 @@ bool Backend::invite(const QString &path, const QStringList &emails, const QStri
     const bool invited = m_itemService->invite(found, emails, role, notify, message, &error);
     setBusy(false);
     setError(error);
+    if (invited) {
+        sharingChanged(path);
+    }
     return invited;
 }
 
@@ -503,6 +551,7 @@ bool Backend::restoreVersion(const QString &path, const QString &versionId)
     const bool restored = m_itemService->restoreVersion(found, versionId, &error);
     setBusy(false);
     setError(error);
+    m_items.remove(QDir::cleanPath(path));
     if (restored) {
         // Bring the restored version down now instead of with the next poll
         syncNow();
@@ -548,15 +597,12 @@ int Backend::viewOnline(const QString &path)
             url.setQuery(QStringLiteral("web=1"));
         }
     } else {
-        // Not online yet, or no network: the address built from the library and the path
-        const QList<RootConfig> roots = Config::roots();
-        for (const RootConfig &root : roots) {
-            const QString rootPath = QDir::cleanPath(root.localPath);
-            if (root.webUrl.isEmpty() || !(cleanPath == rootPath || cleanPath.startsWith(rootPath + QLatin1Char('/')))) {
-                continue;
-            }
+        // Not online yet, or no network: the address built from the library and the path. The
+        // longest match: a shortcut's folder lies inside the OneDrive that holds it
+        const RootConfig root = Config::rootForPath(cleanPath);
+        if (!root.id.isEmpty() && !root.webUrl.isEmpty()) {
             QByteArray encoded = root.webUrl.toUtf8();
-            const QStringList parts = cleanPath.mid(rootPath.size() + 1).split(QLatin1Char('/'), Qt::SkipEmptyParts);
+            const QStringList parts = cleanPath.mid(root.localPath.size() + 1).split(QLatin1Char('/'), Qt::SkipEmptyParts);
             for (const QString &part : parts) {
                 encoded += '/' + QUrl::toPercentEncoding(part);
             }
@@ -564,7 +610,6 @@ int Backend::viewOnline(const QString &path)
                 encoded += "?web=1";
             }
             url = QUrl::fromEncoded(encoded);
-            break;
         }
     }
     if (!url.isValid() || url.isEmpty()) {
@@ -624,35 +669,47 @@ int Backend::openPlaceholder(const QString &pathOrUrl)
 
 bool Backend::hydrateAndWait(const QString &path)
 {
-    const QString real = Placeholder::realPathOf(path);
     if (!sendCommand({{QStringLiteral("command"), QStringLiteral("hydrate")}, {QStringLiteral("path"), path}})) {
         qWarning().noquote() << path << "is not in a synced folder, or the sync service is not running";
         return false;
     }
+    return waitForHydration({path}) == 0;
+}
+
+int Backend::waitForHydration(QStringList paths)
+{
     // A large file takes a while; the tray shows the progress and the daemon reports a failure
+    int failed = 0;
     QElapsedTimer waited;
     waited.start();
-    while (waited.elapsed() < 60 * 60 * 1000) {
+    while (!paths.isEmpty() && waited.elapsed() < 60 * 60 * 1000) {
         QEventLoop pause;
         QTimer::singleShot(300, &pause, &QEventLoop::quit);
         pause.exec();
-        const QString reply = callDaemon(QStringLiteral("Command"),
-                                         {QString::fromUtf8(QJsonDocument(QJsonObject{{QStringLiteral("command"), QStringLiteral("hydrateState")},
-                                                                                      {QStringLiteral("path"), path}})
-                                                                .toJson(QJsonDocument::Compact))});
-        const QString state = QJsonDocument::fromJson(reply.toUtf8()).object().value(QLatin1String("state")).toString();
-        if (state == QLatin1String("done") || (state.isEmpty() && QFileInfo::exists(real))) {
-            return true;
-        }
-        if (state.startsWith(QLatin1String("failed"))) {
-            return false;
+        for (auto it = paths.begin(); it != paths.end();) {
+            const QString reply = callDaemon(QStringLiteral("Command"),
+                                             {QString::fromUtf8(QJsonDocument(QJsonObject{{QStringLiteral("command"), QStringLiteral("hydrateState")},
+                                                                                          {QStringLiteral("path"), *it}})
+                                                                    .toJson(QJsonDocument::Compact))});
+            const QString state = QJsonDocument::fromJson(reply.toUtf8()).object().value(QLatin1String("state")).toString();
+            if (state == QLatin1String("done") || (state.isEmpty() && QFileInfo::exists(Placeholder::realPathOf(*it)))) {
+                it = paths.erase(it);
+            } else if (state.startsWith(QLatin1String("failed"))) {
+                ++failed;
+                it = paths.erase(it);
+            } else {
+                ++it;
+            }
         }
     }
-    return false;
+    return failed + int(paths.size());
 }
 
 int Backend::downloadPlaceholders(const QStringList &pathsOrUrls)
 {
+    // Every download is asked for first, so the engines fetch them side by side; then all are
+    // waited for together
+    QStringList waiting;
     int failed = 0;
     for (const QString &pathOrUrl : pathsOrUrls) {
         const QString path = QDir::cleanPath(pathOrUrl.startsWith(QLatin1String("file:")) ? QUrl(pathOrUrl).toLocalFile() : pathOrUrl);
@@ -660,10 +717,14 @@ int Backend::downloadPlaceholders(const QStringList &pathsOrUrls)
         if (!Placeholder::isPlaceholder(path)) {
             continue;
         }
-        if (!hydrateAndWait(path)) {
+        if (!sendCommand({{QStringLiteral("command"), QStringLiteral("hydrate")}, {QStringLiteral("path"), path}})) {
+            qWarning().noquote() << path << "is not in a synced folder, or the sync service is not running";
             ++failed;
+            continue;
         }
+        waiting.append(path);
     }
+    failed += waitForHydration(waiting);
     return failed == 0 ? 0 : 1;
 }
 
@@ -796,7 +857,7 @@ void Backend::importDone(int result, const QString &message)
     }
     // Everything read at start may have changed: registration, account, folders, setup
     Migration::adoptSharedAccounts(0);
-    m_auth->setConfig(Config::currentAuth());
+    followCurrentAccount();
     m_baseFolder = Config::general().baseFolder;
     if (static_cast<Migration::Result>(result) == Migration::Result::Imported && setupDone()) {
         startDaemon();
@@ -844,7 +905,7 @@ void Backend::accountCommand(const QString &name, const QString &id)
     callDaemon(QStringLiteral("Command"), {QString::fromUtf8(QJsonDocument(command).toJson(QJsonDocument::Compact))});
     // A sign-out may have handed the current account to another one; the other accounts' sign-ins
     // are read again when needed
-    m_auth->setConfig(Config::currentAuth());
+    followCurrentAccount();
     resetAccountClients();
     m_items.clear();
     refreshStatus();
@@ -885,7 +946,7 @@ void Backend::signOutAccount(const QString &id)
         Auth auth(Config::authFor(account));
         auth.logout();
     }
-    m_auth->setConfig(Config::currentAuth());
+    followCurrentAccount();
     // Its tokens may still be in memory from Share or Version History
     resetAccountClients();
     Q_EMIT accountChanged();
@@ -968,8 +1029,21 @@ QString Backend::addPersonalFor(const QString &accountId)
         setError(drive.describe());
         return {};
     }
-    const QString label = account.organization.isEmpty() ? organization() : Config::organizationLabel(account);
-    return addRoot({{QStringLiteral("name"), i18nc("name of the personal OneDrive, %1 is the organization", "OneDrive - %1", account.organization)},
+    // Its own organisation, never the current account's: fetched now when not known yet, else the
+    // domain of its address, so the folder never takes another organisation's name
+    AccountInfo named = account;
+    if (named.organization.isEmpty()) {
+        setBusy(true);
+        const GraphResponse organization = graph->get(QStringLiteral("/organization?$select=displayName"));
+        setBusy(false);
+        const QJsonArray values = organization.json().value(QLatin1String("value")).toArray();
+        named.organization = values.isEmpty() ? QString() : values.first().toObject().value(QLatin1String("displayName")).toString();
+        if (named.organization.isEmpty()) {
+            named.organization = account.userPrincipalName.section(QLatin1Char('@'), 1);
+        }
+    }
+    const QString label = Config::organizationLabel(named);
+    return addRoot({{QStringLiteral("name"), i18nc("name of the personal OneDrive, %1 is the organization", "OneDrive - %1", named.organization)},
                     {QStringLiteral("localPath"), QDir(m_baseFolder).filePath(i18nc("folder name of the personal OneDrive, %1 is the organization", "OneDrive - %1", safeName(label)))},
                     {QStringLiteral("driveId"), drive.json().value(QLatin1String("id")).toString()},
                     {QStringLiteral("kind"), QStringLiteral("personal")},
@@ -979,6 +1053,10 @@ QString Backend::addPersonalFor(const QString &accountId)
 
 QString Backend::addPersonal()
 {
+    // The folder is named after the organisation
+    if (Config::account().organization.isEmpty()) {
+        fetchOrganization();
+    }
     const QVariantMap drive = personalDrive();
     if (drive.value(QStringLiteral("id")).toString().isEmpty()) {
         return {};
@@ -1122,8 +1200,22 @@ void Backend::cancelNewAccount()
     }
     m_restoreAfterSignIn = false;
     m_loginHint.clear();
+    m_followAccountLater = false;
     m_auth->setConfig(Config::currentAuth());
     setError({});
+}
+
+void Backend::followCurrentAccount()
+{
+    // A sign-in waits (in its own event loop) on m_auth, or a new account is being added and
+    // m_auth holds its registration: switched once that is over, never underneath it (its token
+    // would be stored for the wrong account)
+    if (busy() || !m_loginHint.isEmpty()) {
+        m_followAccountLater = true;
+        return;
+    }
+    m_followAccountLater = false;
+    m_auth->setConfig(Config::currentAuth());
 }
 
 bool Backend::endSignIn(bool ok, const QString &error)
@@ -1133,6 +1225,7 @@ bool Backend::endSignIn(bool ok, const QString &error)
         // its account properly (and made it current); either way back to the current account
         m_restoreAfterSignIn = false;
         m_loginHint.clear();
+        m_followAccountLater = false;
         m_auth->setConfig(Config::currentAuth());
         if (ok) {
             return finishSignIn();
@@ -1159,6 +1252,9 @@ void Backend::setBusy(bool busy)
     if (m_busy != busy) {
         m_busy = busy;
         Q_EMIT busyChanged();
+    }
+    if (!busy && m_followAccountLater && m_loginHint.isEmpty()) {
+        followCurrentAccount();
     }
 }
 
@@ -1214,6 +1310,11 @@ QString Backend::tenantId() const
 
 bool Backend::saveAppRegistration(const QString &client, const QString &tenant)
 {
+    // It changes m_auth, which a running sign-in or an account being added still uses
+    if (busy() || !m_loginHint.isEmpty()) {
+        setError(i18n("Finish or cancel the sign-in first."));
+        return false;
+    }
     AuthConfig config = Auth::parseSetupText(client);
     if (config.clientId.isEmpty()) {
         config.clientId = client.trimmed();
@@ -1292,6 +1393,9 @@ bool Backend::saveAppRegistration(const QString &client, const QString &tenant)
 bool Backend::finishSignIn()
 {
     m_loginHint.clear();
+    if (m_followAccountLater) {
+        followCurrentAccount();
+    }
     // The account that signed in may have been used through an older sign-in
     resetAccountClients();
     setError({});
@@ -1474,6 +1578,60 @@ QVariantMap Backend::root(const QString &rootId)
             {QStringLiteral("excludedPaths"), root.excludedPaths}};
 }
 
+QVariantList Backend::backupFolders()
+{
+    const QList<RootConfig> roots = Config::roots();
+    QVariantList result;
+    const QList<FolderBackup::Folder> folders = FolderBackup::folders();
+    for (const FolderBackup::Folder &folder : folders) {
+        QString rootId;
+        for (const RootConfig &root : roots) {
+            if (root.backup == folder.key) {
+                rootId = root.id;
+            }
+        }
+        result.append(QVariantMap{{QStringLiteral("key"), folder.key},
+                                  {QStringLiteral("title"), folder.title},
+                                  {QStringLiteral("localPath"), folder.localPath},
+                                  {QStringLiteral("problem"), rootId.isEmpty() ? FolderBackup::problem(folder.localPath, roots) : QString()},
+                                  {QStringLiteral("rootId"), rootId}});
+    }
+    return result;
+}
+
+bool Backend::startBackup(const QString &accountId, const QStringList &keys)
+{
+    GraphClient *graph = graphForAccount(accountId);
+    if (!graph || accountId.isEmpty()) {
+        setError(i18n("The account of this backup is no longer on this computer."));
+        return false;
+    }
+    setBusy(true);
+    const auto done = [this](bool ok) {
+        setBusy(false);
+        refreshStatus();
+        return ok;
+    };
+    for (const QString &key : keys) {
+        const auto folder = FolderBackup::folder(key);
+        // Done already (a retry after another folder failed): only the rest
+        const QList<RootConfig> roots = Config::roots();
+        const bool backedUp = std::any_of(roots.cbegin(), roots.cend(), [&](const RootConfig &root) {
+            return root.backup == key;
+        });
+        if (!folder || backedUp) {
+            continue;
+        }
+        QString error;
+        if (FolderBackup::start(graph, accountId, *folder, &error).isEmpty()) {
+            setError(error);
+            return done(false);
+        }
+    }
+    setError({});
+    return done(true);
+}
+
 bool Backend::setExcludedFolders(const QString &rootId, const QStringList &paths)
 {
     std::unique_ptr<QDBusInterface> iface(daemon(nullptr));
@@ -1528,14 +1686,7 @@ QString Backend::libraryPathFor(const AccountInfo &account, const QString &siteN
 
 bool Backend::pathInUse(const QString &path)
 {
-    const QString clean = QDir::cleanPath(path);
-    const QList<RootConfig> roots = Config::roots();
-    for (const RootConfig &root : roots) {
-        if (clean == root.localPath || clean.startsWith(root.localPath + QLatin1Char('/')) || root.localPath.startsWith(clean + QLatin1Char('/'))) {
-            return true;
-        }
-    }
-    return false;
+    return Config::overlapsRoot(path);
 }
 
 bool Backend::accountSignedIn(const QString &accountId) const

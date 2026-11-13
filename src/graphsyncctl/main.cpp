@@ -3,6 +3,8 @@
 
 #include "auth.h"
 #include "config.h"
+#include "dbusnames.h"
+#include "folderbackup.h"
 #include "graphclient.h"
 #include "itemservice.h"
 #include "migration.h"
@@ -52,20 +54,28 @@ int fail(const QString &message)
     return 1;
 }
 
+// By id; by name only when exactly one location has that name (two accounts can both have
+// "OneDrive - Contoso", and acting on the wrong one removes its state)
 std::optional<RootConfig> findRoot(const QString &id)
 {
     const QList<RootConfig> roots = Config::roots();
+    std::optional<RootConfig> byName;
+    int named = 0;
     for (const RootConfig &root : roots) {
-        if (root.id == id || root.name == id) {
+        if (root.id == id) {
             return root;
         }
+        if (root.name == id) {
+            byName = root;
+            ++named;
+        }
     }
-    return std::nullopt;
+    return named == 1 ? byName : std::nullopt;
 }
 
 int callDaemon(const QString &method, const QVariantList &arguments = {})
 {
-    QDBusInterface iface(QStringLiteral("io.github.nvaert1986.GraphSync"), QStringLiteral("/GraphSync"), QStringLiteral("io.github.nvaert1986.GraphSync"));
+    QDBusInterface iface(DBusNames::service(), DBusNames::path(), DBusNames::interfaceName());
     if (!iface.isValid()) {
         return fail(QStringLiteral("graphsyncd is not running"));
     }
@@ -90,6 +100,8 @@ const char usage[] = R"(Commands:
   drives --site-url URL                     list document libraries of a SharePoint site
   add-root --name N --local PATH --drive ID [--remote-root ITEM]
   add-personal [--local PATH]               sync the current account's own OneDrive
+  backup-folders desktop|documents|pictures...   PC folder backup: keep these folders in the
+                                            current account's OneDrive (stop: remove-root ROOT)
   roots | remove-root ROOT                  list or remove sync roots
   sync ROOT [--download-only]               run one sync cycle in this process
   status | activity | sync-now | pause [MINUTES] | resume   talk to the running graphsyncd
@@ -215,7 +227,7 @@ int main(int argc, char **argv)
         }
         Config::setCurrentAccountId(account.id);
         // Only the pointer changes: no restart of the running locations
-        QDBusInterface(QStringLiteral("io.github.nvaert1986.GraphSync"), QStringLiteral("/GraphSync"), QStringLiteral("io.github.nvaert1986.GraphSync"))
+        QDBusInterface(DBusNames::service(), DBusNames::path(), DBusNames::interfaceName())
             .call(QStringLiteral("Command"), QStringLiteral(R"({"command":"setCurrentAccount","id":"%1"})").arg(account.id));
         out() << "current account: " << account.userPrincipalName << Qt::endl;
         return 0;
@@ -267,7 +279,7 @@ int main(int argc, char **argv)
         }
         const AccountInfo account = Config::account();
         // Only this account's locations restart in the running daemon
-        QDBusInterface(QStringLiteral("io.github.nvaert1986.GraphSync"), QStringLiteral("/GraphSync"), QStringLiteral("io.github.nvaert1986.GraphSync"))
+        QDBusInterface(DBusNames::service(), DBusNames::path(), DBusNames::interfaceName())
             .call(QStringLiteral("Command"), QStringLiteral(R"({"command":"reloadAccount","id":"%1"})").arg(account.id));
         out() << "Added " << account.displayName << " <" << account.userPrincipalName << "> (" << account.organization << ") as account " << account.id
               << "; it is now the current account" << Qt::endl;
@@ -307,7 +319,7 @@ int main(int argc, char **argv)
         const AccountInfo account = Config::account();
         out() << "Signed in as " << account.displayName << " <" << account.userPrincipalName << "> (" << account.organization << ")" << Qt::endl;
         // A running daemon starts this account's locations
-        QDBusInterface(QStringLiteral("io.github.nvaert1986.GraphSync"), QStringLiteral("/GraphSync"), QStringLiteral("io.github.nvaert1986.GraphSync"))
+        QDBusInterface(DBusNames::service(), DBusNames::path(), DBusNames::interfaceName())
             .call(QStringLiteral("Command"), QStringLiteral(R"({"command":"reloadAccount","id":"%1"})").arg(account.id));
         return 0;
     }
@@ -315,7 +327,7 @@ int main(int argc, char **argv)
         // Through the running daemon: it stops the account's locations (they would keep syncing
         // with the token in its memory) and picks another current account
         const QString accountId = Config::account().id;
-        QDBusInterface daemon(QStringLiteral("io.github.nvaert1986.GraphSync"), QStringLiteral("/GraphSync"), QStringLiteral("io.github.nvaert1986.GraphSync"));
+        QDBusInterface daemon(DBusNames::service(), DBusNames::path(), DBusNames::interfaceName());
         const QJsonObject request{{QStringLiteral("command"), QStringLiteral("signOutAccount")}, {QStringLiteral("id"), accountId}};
         if (accountId.isEmpty() || !daemon.isValid() || !daemon.call(QStringLiteral("Command"), QString::fromUtf8(QJsonDocument(request).toJson(QJsonDocument::Compact))).errorMessage().isEmpty()) {
             auth.logout();
@@ -367,11 +379,32 @@ int main(int argc, char **argv)
         }
         RootConfig root;
         root.name = parser.isSet(nameOpt) ? parser.value(nameOpt) : parser.value(localOpt).section(QLatin1Char('/'), -1);
-        root.localPath = parser.value(localOpt);
+        root.localPath = QFileInfo(parser.value(localOpt)).absoluteFilePath();
         root.driveId = parser.value(driveOpt);
         root.remoteRootId = parser.value(remoteRootOpt);
         // Syncs with the current account
         root.accountId = Config::account().id;
+        // The same check as the app and the daemon: never the home folder, / or a folder inside,
+        // around or the same as another location
+        if (Config::rootPathProblem(root.localPath) != Config::RootPathProblem::None) {
+            return fail(QStringLiteral("%1 cannot be a location: it is not a full path, too broad (home folder or /), or inside or around another location").arg(root.localPath));
+        }
+        QDBusInterface daemon(DBusNames::service(), DBusNames::path(), DBusNames::interfaceName());
+        if (daemon.isValid()) {
+            // Through the running daemon, so it starts syncing at once
+            const QJsonObject request{{QStringLiteral("name"), root.name},
+                                      {QStringLiteral("localPath"), root.localPath},
+                                      {QStringLiteral("driveId"), root.driveId},
+                                      {QStringLiteral("remoteRootId"), root.remoteRootId},
+                                      {QStringLiteral("kind"), root.remoteRootId.isEmpty() ? QStringLiteral("library") : QStringLiteral("folder")},
+                                      {QStringLiteral("accountId"), root.accountId}};
+            const QDBusReply<QString> added = daemon.call(QStringLiteral("AddRoot"), QString::fromUtf8(QJsonDocument(request).toJson(QJsonDocument::Compact)));
+            if (!added.isValid() || added.value().isEmpty()) {
+                return fail(QStringLiteral("the sync service refused ") + root.localPath);
+            }
+            out() << "added root " << added.value() << " (" << root.name << ") -> " << root.localPath << Qt::endl;
+            return 0;
+        }
         const RootConfig stored = Config::addRoot(root);
         out() << "added root " << stored.id << " (" << stored.name << ") -> " << stored.localPath << Qt::endl;
         return 0;
@@ -398,13 +431,42 @@ int main(int argc, char **argv)
                                {QStringLiteral("kind"), QStringLiteral("personal")},
                                {QStringLiteral("accountId"), account.id}};
         // Through the daemon: it checks the folder, adds the Places entry and starts at once
-        QDBusInterface daemon(QStringLiteral("io.github.nvaert1986.GraphSync"), QStringLiteral("/GraphSync"), QStringLiteral("io.github.nvaert1986.GraphSync"));
+        QDBusInterface daemon(DBusNames::service(), DBusNames::path(), DBusNames::interfaceName());
         const QDBusReply<QString> added = daemon.call(QStringLiteral("AddRoot"), QString::fromUtf8(QJsonDocument(root).toJson(QJsonDocument::Compact)));
         if (!added.isValid() || added.value().isEmpty()) {
             return fail(added.isValid() ? QStringLiteral("the sync service refused ") + root.value(QLatin1String("localPath")).toString()
                                         : QStringLiteral("graphsyncd is not running"));
         }
         out() << "added root " << added.value() << " -> " << root.value(QLatin1String("localPath")).toString() << Qt::endl;
+        return 0;
+    }
+    if (command == QLatin1String("backup-folders")) {
+        // PC folder backup with the current account: backup-folders desktop|documents|pictures...
+        // [--local PATH] (one folder: another local folder than the XDG one, for tests)
+        const AccountInfo account = Config::account();
+        if (!account.isValid()) {
+            return fail(QStringLiteral("not signed in (graphsyncctl login or add-account)"));
+        }
+        const QStringList keys = args.mid(1);
+        if (keys.isEmpty() || (parser.isSet(localOpt) && keys.size() != 1)) {
+            return fail(QStringLiteral("backup-folders needs desktop, documents and/or pictures (--local with one folder only)"));
+        }
+        GraphClient graph(&auth);
+        for (const QString &key : keys) {
+            auto folder = FolderBackup::folder(key);
+            if (!folder) {
+                return fail(QStringLiteral("unknown folder %1 (desktop, documents or pictures)").arg(key));
+            }
+            if (parser.isSet(localOpt)) {
+                folder->localPath = QFileInfo(parser.value(localOpt)).absoluteFilePath();
+            }
+            QString error;
+            const QString id = FolderBackup::start(&graph, account.id, *folder, &error);
+            if (id.isEmpty()) {
+                return fail(error);
+            }
+            out() << "backing up " << folder->localPath << " (root " << id << ")" << Qt::endl;
+        }
         return 0;
     }
     if (command == QLatin1String("roots")) {
@@ -421,7 +483,14 @@ int main(int argc, char **argv)
             return fail(QStringLiteral("remove-root needs a root id"));
         }
         const auto root = findRoot(args.at(1));
-        if (!root || !Config::removeRoot(root->id)) {
+        if (!root) {
+            return fail(QStringLiteral("no such root"));
+        }
+        // Through the running daemon: it stops the location at once (a config edit alone leaves it
+        // syncing until the next reload)
+        QDBusInterface daemon(DBusNames::service(), DBusNames::path(), DBusNames::interfaceName());
+        const QDBusReply<bool> removed = daemon.isValid() ? daemon.call(QStringLiteral("RemoveRoot"), root->id) : QDBusReply<bool>();
+        if (!(removed.isValid() && removed.value()) && !Config::removeRoot(root->id)) {
             return fail(QStringLiteral("no such root"));
         }
         out() << "removed root " << root->id << "; local files were left in place" << Qt::endl;
@@ -433,7 +502,21 @@ int main(int argc, char **argv)
         }
         const auto root = findRoot(args.at(1));
         if (!root) {
-            return fail(QStringLiteral("no such root"));
+            return fail(QStringLiteral("no such root (or a name more than one location has: use the id)"));
+        }
+        // Never next to the running daemon on the same location: two engines on one state
+        // database and one folder race on every move and delete
+        {
+            QDBusInterface daemon(DBusNames::service(), DBusNames::path(), DBusNames::interfaceName());
+            const QDBusReply<QString> status = daemon.isValid() ? daemon.call(QStringLiteral("Status")) : QDBusReply<QString>();
+            const QJsonArray running = QJsonDocument::fromJson(status.value().toUtf8()).object().value(QLatin1String("roots")).toArray();
+            const bool busy = std::any_of(running.begin(), running.end(), [&](const QJsonValue &each) {
+                return each.toObject().value(QLatin1String("id")).toString() == root->id
+                    && each.toObject().value(QLatin1String("state")).toString() != QLatin1String("signedOut");
+            });
+            if (busy) {
+                return fail(QStringLiteral("graphsyncd syncs this location already; use `graphsyncctl sync-now`, or stop the service first"));
+            }
         }
         // With the location's own account: another account's sign-in would upload as that user
         // and take items it cannot see for deleted
@@ -506,7 +589,7 @@ int main(int argc, char **argv)
         ItemService service(&graph);
         // A path in a location of another account goes through that account's sign-in
         std::map<QString, std::pair<std::unique_ptr<Auth>, std::unique_ptr<GraphClient>>> others;
-        service.setGraphProvider([&others, &graph](const QString &accountId) -> GraphClient * {
+        const auto clientFor = [&others, &graph](const QString &accountId) -> GraphClient * {
             const AccountInfo account = GraphCore::Accounts::find(accountId);
             if (!account.isValid()) {
                 return nullptr;
@@ -520,7 +603,8 @@ int main(int argc, char **argv)
                 client.second = std::make_unique<GraphClient>(client.first.get());
             }
             return client.second.get();
-        });
+        };
+        service.setGraphProvider(clientFor);
         QString error;
         auto print = [](const QVariant &value) {
             out() << QJsonDocument::fromVariant(value).toJson(QJsonDocument::Indented);
@@ -550,9 +634,22 @@ int main(int argc, char **argv)
                                      {QStringLiteral("accountId"), item.accountId},
                                      {QStringLiteral("isFolder"), item.isFolder}});
         }
+        // The running daemon reads the item's sharing again for Dolphin's emblem (Graph's change
+        // feed does not report it); without a daemon the next full check picks it up
+        const auto sharingChanged = [&args] {
+            QDBusInterface daemon(DBusNames::service(), DBusNames::path(), DBusNames::interfaceName());
+            if (daemon.isValid()) {
+                const QJsonObject request{{QStringLiteral("command"), QStringLiteral("sharingChanged")},
+                                          {QStringLiteral("path"), QFileInfo(args.at(1)).absoluteFilePath()}};
+                daemon.call(QStringLiteral("Command"), QString::fromUtf8(QJsonDocument(request).toJson(QJsonDocument::Compact)));
+            }
+        };
         if (command == QLatin1String("link")) {
             // link <path> [view|edit] [anonymous|organization|users]; no scope = organisation default
             const QVariantMap link = service.createLink(item, args.value(2, QStringLiteral("view")), args.value(3), {}, &error);
+            if (error.isEmpty()) {
+                sharingChanged();
+            }
             return error.isEmpty() ? print(link) : fail(error);
         }
         if (command == QLatin1String("permissions")) {
@@ -560,11 +657,19 @@ int main(int argc, char **argv)
             return error.isEmpty() ? print(list) : fail(error);
         }
         if (command == QLatin1String("unshare")) {
-            return service.removePermission(item, args.value(2), &error) ? 0 : fail(error);
+            if (!service.removePermission(item, args.value(2), &error)) {
+                return fail(error);
+            }
+            sharingChanged();
+            return 0;
         }
         if (command == QLatin1String("invite")) {
             // invite <path> <email> [read|write]; no e-mail is sent
-            return service.invite(item, {args.value(2)}, args.value(3, QStringLiteral("read")), false, {}, &error) ? 0 : fail(error);
+            if (!service.invite(item, {args.value(2)}, args.value(3, QStringLiteral("read")), false, {}, &error)) {
+                return fail(error);
+            }
+            sharingChanged();
+            return 0;
         }
         if (command == QLatin1String("versions")) {
             const QVariantList list = service.versions(item, &error);
@@ -576,7 +681,12 @@ int main(int argc, char **argv)
             if (item.isFolder || !target.open(QIODevice::WriteOnly)) {
                 return fail(QStringLiteral("download needs a file and a writable target"));
             }
-            const GraphResponse response = graph.download(QStringLiteral("/drives/%1/items/%2/content").arg(item.driveId, item.id), &target);
+            // With the account of the file's location, like every other item command
+            GraphClient *client = clientFor(item.accountId);
+            if (!client) {
+                return fail(QStringLiteral("the account of this location is no longer on this computer"));
+            }
+            const GraphResponse response = client->download(QStringLiteral("/drives/%1/items/%2/content").arg(item.driveId, item.id), &target);
             return response.ok() ? 0 : fail(response.describe());
         }
         if (command == QLatin1String("add-shortcut")) {

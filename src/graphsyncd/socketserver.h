@@ -3,11 +3,16 @@
 
 #pragma once
 
+#include "syncengine.h"
+
+#include <QElapsedTimer>
 #include <QHash>
 #include <QList>
 #include <QObject>
 #include <QSet>
 #include <QString>
+
+#include <memory>
 
 class QLocalServer;
 class QLocalSocket;
@@ -38,7 +43,12 @@ public:
     static QString socketPath();
 
     // Status of one absolute path, as sent in STATUS replies (exposed for tests)
+    // The sync state, plus "+SHARED" when the item or a folder above it is shared with others
     QString statusFor(const QString &path) const;
+    // The sync state alone; owner is the location holding path, snapshot its emblem data
+    QString syncStatusFor(const QString &path, const RootController *owner, const std::shared_ptr<const SyncEngine::StatusSnapshot> &snapshot) const;
+    // The location holding path (the longest match), or null
+    const RootController *ownerOf(const QString &path) const;
 
 private:
     void onNewConnection();
@@ -55,6 +65,10 @@ private:
     QSet<QString> m_registered;
     QSet<QString> m_pendingUpdates;
     QTimer *m_updateTimer = nullptr;
+    // Folders with a .nosync file, looked up for a few seconds at most
+    bool hasNoSyncMarker(const QString &folder) const;
+    mutable QHash<QString, bool> m_noSync;
+    mutable QElapsedTimer m_noSyncAge;
 };
 
 }

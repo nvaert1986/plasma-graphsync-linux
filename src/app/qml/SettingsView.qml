@@ -121,13 +121,14 @@ Item {
 
     Kirigami.PromptDialog {
         id: removeDialog
-        title: i18n("Stop Syncing?")
-        subtitle: page.rootToRemove ? i18n("%1 will no longer be synced. The files stay online, and the local copies in %2 are kept as ordinary files.", page.rootToRemove.name, page.rootToRemove.localPath) : ""
+        readonly property bool backup: (page.rootToRemove?.backup ?? "") !== ""
+        title: backup ? i18n("Stop Backup?") : i18n("Stop Syncing?")
+        subtitle: !page.rootToRemove ? "" : backup ? i18n("%1 will no longer be backed up to OneDrive. The files stay in %2 and online; changes are no longer synced. The OneDrive location keeps leaving this folder out; to have it there, choose it again under Choose Folders.", page.rootToRemove.name, page.rootToRemove.localPath) : i18n("%1 will no longer be synced. The files stay online, and the local copies in %2 are kept as ordinary files.", page.rootToRemove.name, page.rootToRemove.localPath)
         standardButtons: Kirigami.Dialog.NoButton
         customFooterActions: [
             Kirigami.Action {
                 icon.name: "edit-delete-remove"
-                text: i18n("Stop Syncing")
+                text: removeDialog.backup ? i18n("Stop Backup") : i18n("Stop Syncing")
                 onTriggered: {
                     page.api.removeRoot(page.rootToRemove.id);
                     removeDialog.close();
@@ -137,6 +138,85 @@ Item {
                 icon.name: "dialog-cancel"
                 text: i18n("Cancel")
                 onTriggered: removeDialog.close()
+            }
+        ]
+    }
+
+    // PC folder backup: Desktop, Documents and Pictures kept in the account's OneDrive
+    Kirigami.Dialog {
+        id: backupDialog
+        property string accountId: ""
+        property var folders: []
+        property var chosen: ({})
+        function openFor(id) {
+            accountId = id;
+            folders = page.api.backupFolders();
+            chosen = {};
+            open();
+        }
+        title: i18n("Back Up Folders to OneDrive")
+        preferredWidth: Kirigami.Units.gridUnit * 28
+        standardButtons: Kirigami.Dialog.NoButton
+        ColumnLayout {
+            spacing: Kirigami.Units.largeSpacing
+            QQC2.Label {
+                Layout.fillWidth: true
+                wrapMode: Text.Wrap
+                text: i18n("These folders stay where they are on this computer and are kept in OneDrive too, in folders of the same names, like on Windows. Files already in OneDrive there come here as well; files with the same name but other content are kept as a copy. The OneDrive location leaves these folders out, so nothing is synced twice.")
+            }
+            Repeater {
+                model: backupDialog.folders
+                delegate: ColumnLayout {
+                    required property var modelData
+                    Layout.fillWidth: true
+                    spacing: 0
+                    QQC2.CheckBox {
+                        text: modelData.title
+                        enabled: modelData.rootId === "" && modelData.problem === ""
+                        checked: modelData.rootId !== ""
+                        onToggled: {
+                            const chosen = Object.assign({}, backupDialog.chosen);
+                            chosen[modelData.key] = checked;
+                            backupDialog.chosen = chosen;
+                        }
+                    }
+                    QQC2.Label {
+                        Layout.fillWidth: true
+                        Layout.leftMargin: Kirigami.Units.gridUnit * 2
+                        wrapMode: Text.Wrap
+                        opacity: 0.7
+                        textFormat: Text.PlainText
+                        text: modelData.rootId !== "" ? i18n("%1 is backed up already.", modelData.localPath) : (modelData.problem !== "" ? modelData.problem : modelData.localPath)
+                    }
+                }
+            }
+        }
+        customFooterActions: [
+            Kirigami.Action {
+                icon.name: "folder-sync"
+                text: i18n("Start Backup")
+                enabled: !page.api.busy && Object.values(backupDialog.chosen).some(on => on)
+                onTriggered: {
+                    const keys = Object.keys(backupDialog.chosen).filter(key => backupDialog.chosen[key]);
+                    if (page.api.startBackup(backupDialog.accountId, keys)) {
+                        backupDialog.close();
+                    } else {
+                        // Some may have started: show what is backed up now, keep the rest chosen
+                        backupDialog.folders = page.api.backupFolders();
+                        const chosen = {};
+                        for (const folder of backupDialog.folders) {
+                            if (folder.rootId === "" && backupDialog.chosen[folder.key]) {
+                                chosen[folder.key] = true;
+                            }
+                        }
+                        backupDialog.chosen = chosen;
+                    }
+                }
+            },
+            Kirigami.Action {
+                icon.name: "dialog-cancel"
+                text: i18n("Cancel")
+                onTriggered: backupDialog.close()
             }
         ]
     }
@@ -397,6 +477,13 @@ Item {
                                         }
                                     }
                                     QQC2.Button {
+                                        visible: entry.modelData.header?.signedIn === true
+                                        flat: true
+                                        icon.name: "folder-sync"
+                                        text: i18n("Back Up Folders…")
+                                        onClicked: backupDialog.openFor(entry.modelData.header.id)
+                                    }
+                                    QQC2.Button {
                                         visible: entry.modelData.header !== null && entry.modelData.header.signedIn === false && entry.modelData.header.id !== ""
                                         icon.name: "im-user-online"
                                         text: i18n("Sign In…")
@@ -526,7 +613,7 @@ Item {
                                                 QQC2.Button {
                                                     visible: !card.isShortcut
                                                     icon.name: "edit-delete-remove"
-                                                    text: i18n("Stop Syncing")
+                                                    text: (card.modelData.backup ?? "") !== "" ? i18n("Stop Backup") : i18n("Stop Syncing")
                                                     onClicked: {
                                                         page.rootToRemove = card.modelData;
                                                         removeDialog.open();
@@ -848,6 +935,42 @@ Item {
                                 QQC2.Label {
                                     text: i18nc("megabytes", "MB")
                                 }
+                            }
+
+                            Kirigami.Separator {
+                                Kirigami.FormData.isSection: true
+                                Kirigami.FormData.label: i18n("Files On-Demand")
+                            }
+                            RowLayout {
+                                QQC2.CheckBox {
+                                    id: autoFreeUp
+                                    text: i18n("Free up files not opened for")
+                                    checked: page.api.freeUpAfterDays > 0
+                                    onToggled: page.api.freeUpAfterDays = checked ? freeUpDays.value : 0
+                                    QQC2.ToolTip.visible: hovered
+                                    QQC2.ToolTip.delay: Kirigami.Units.toolTipDelay
+                                    QQC2.ToolTip.text: i18n("Only in locations with Files On-Demand switched on. Files you chose to always keep on this computer, files with changes not uploaded yet and files that are open stay. Checked a few times a day.")
+                                }
+                                QQC2.SpinBox {
+                                    id: freeUpDays
+                                    enabled: autoFreeUp.checked
+                                    from: 1
+                                    to: 3650
+                                    editable: true
+                                    value: page.api.freeUpAfterDays > 0 ? page.api.freeUpAfterDays : 30
+                                    onValueModified: page.api.freeUpAfterDays = value
+                                }
+                                QQC2.Label {
+                                    text: i18ncp("free up files not opened for", "day", "days", freeUpDays.value)
+                                }
+                            }
+                            QQC2.CheckBox {
+                                text: i18n("Show previews of online-only files in Dolphin")
+                                checked: page.api.dolphinPreviews
+                                onToggled: page.api.dolphinPreviews = checked
+                                QQC2.ToolTip.visible: hovered
+                                QQC2.ToolTip.delay: Kirigami.Units.toolTipDelay
+                                QQC2.ToolTip.text: i18n("Microsoft makes the previews; they are fetched without downloading the files. Takes effect when Dolphin is started again.")
                             }
                         }
 

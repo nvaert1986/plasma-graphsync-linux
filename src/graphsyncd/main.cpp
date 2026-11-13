@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "daemon.h"
+#include "dbusnames.h"
 #include "dbusservice.h"
 #include "graphsync_debug.h"
 #include "migration.h"
@@ -86,14 +87,14 @@ int main(int argc, char **argv)
     Migration::adoptSharedAccounts();
 
     QDBusConnection bus = QDBusConnection::sessionBus();
-    if (!bus.registerService(QStringLiteral("io.github.nvaert1986.GraphSync"))) {
+    if (!bus.registerService(DBusNames::service())) {
         qCCritical(GRAPHSYNC) << "graphsyncd is already running (or the session bus is unavailable)";
         return 1;
     }
 
     Daemon daemon;
     DBusService service(&daemon);
-    bus.registerObject(QStringLiteral("/GraphSync"), &service, QDBusConnection::ExportScriptableContents);
+    bus.registerObject(DBusNames::path(), &service, QDBusConnection::ExportScriptableContents);
     SocketServer socketServer(&daemon);
     socketServer.listen();
 

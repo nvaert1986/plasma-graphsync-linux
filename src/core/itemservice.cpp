@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "itemservice.h"
+#include "statedb.h"
 #include "auth.h"
 #include "config.h"
 #include "graphclient.h"
@@ -30,6 +31,27 @@ QString encodePath(const QString &rel)
         parts.append(QString::fromLatin1(QUrl::toPercentEncoding(name)));
     }
     return parts.join(QLatin1Char('/'));
+}
+
+// Every page of a list into *all: an item can have more sharing links or versions than one page
+// holds. False with the failing page's response in *failed.
+bool allPages(GraphClient *graph, const QString &path, QJsonArray *all, GraphResponse *failed)
+{
+    QString next = path;
+    for (int page = 0; !next.isEmpty() && page < 100; ++page) {
+        const GraphResponse response = graph->get(next);
+        if (!response.ok()) {
+            *failed = response;
+            return false;
+        }
+        const QJsonObject json = response.json();
+        const QJsonArray values = json.value(QLatin1String("value")).toArray();
+        for (const QJsonValue &value : values) {
+            all->append(value);
+        }
+        next = json.value(QLatin1String("@odata.nextLink")).toString();
+    }
+    return true;
 }
 
 QString displayNameOf(const QJsonObject &identitySet)
@@ -153,6 +175,10 @@ ItemService::Item ItemService::resolve(const QString &localPath, QString *error)
     item.webUrl = json.value(QLatin1String("webUrl")).toString();
     item.isFolder = json.contains(QLatin1String("folder"));
     item.accountId = owner.accountId;
+    // The location's root itself always is; anything else must be what the sync state knows
+    // under that path (a file renamed or replaced here and not uploaded yet resolves by its path
+    // to the old online item)
+    item.matchesLocal = rel.isEmpty() || StateDb::localMatches(owner.id, item.id, path);
 
     // The classic permissions page: <site>/_layouts/15/user.aspx?obj={list},<item>,LISTITEM&List={list}.
     // The library root has no list item and uses the library form (obj={list},doclib).
@@ -168,8 +194,17 @@ ItemService::Item ItemService::resolve(const QString &localPath, QString *error)
     return item;
 }
 
+QString ItemService::notSyncedYet(const Item &item)
+{
+    return i18n("%1 is new or renamed here and not online yet; try again once it is synced.", item.name);
+}
+
 QVariantMap ItemService::createLink(const Item &item, const QString &type, const QString &scope, const QDateTime &expiry, QString *error)
 {
+    if (!item.matchesLocal) {
+        *error = notSyncedYet(item);
+        return {};
+    }
     QJsonObject body{{QStringLiteral("type"), type}};
     if (!scope.isEmpty()) {
         body.insert(QStringLiteral("scope"), scope);
@@ -193,13 +228,13 @@ QVariantMap ItemService::createLink(const Item &item, const QString &type, const
 
 QVariantList ItemService::permissions(const Item &item, QString *error)
 {
-    const GraphResponse response = graphFor(item.accountId)->get(itemPath(item) + QStringLiteral("/permissions"));
-    if (!response.ok()) {
-        *error = describe(response);
+    QJsonArray list;
+    GraphResponse failed;
+    if (!allPages(graphFor(item.accountId), itemPath(item) + QStringLiteral("/permissions"), &list, &failed)) {
+        *error = describe(failed);
         return {};
     }
     QVariantList result;
-    const QJsonArray list = response.json().value(QLatin1String("value")).toArray();
     for (const QJsonValue &value : list) {
         const QJsonObject permission = value.toObject();
         const QJsonObject link = permission.value(QLatin1String("link")).toObject();
@@ -266,6 +301,10 @@ QVariantList ItemService::permissions(const Item &item, QString *error)
 
 bool ItemService::removePermission(const Item &item, const QString &permissionId, QString *error)
 {
+    if (!item.matchesLocal) {
+        *error = notSyncedYet(item);
+        return false;
+    }
     const GraphResponse response = graphFor(item.accountId)->deleteResource(itemPath(item) + QStringLiteral("/permissions/") + permissionId);
     if (!response.ok()) {
         *error = describe(response);
@@ -276,6 +315,10 @@ bool ItemService::removePermission(const Item &item, const QString &permissionId
 
 bool ItemService::invite(const Item &item, const QStringList &emails, const QString &role, bool sendInvitation, const QString &message, QString *error)
 {
+    if (!item.matchesLocal) {
+        *error = notSyncedYet(item);
+        return false;
+    }
     QJsonArray recipients;
     for (const QString &email : emails) {
         recipients.append(QJsonObject{{QStringLiteral("email"), email.trimmed()}});
@@ -350,13 +393,13 @@ QVariantList ItemService::searchPeople(const QString &query, const QString &acco
 
 QVariantList ItemService::versions(const Item &item, QString *error)
 {
-    const GraphResponse response = graphFor(item.accountId)->get(itemPath(item) + QStringLiteral("/versions"));
-    if (!response.ok()) {
-        *error = describe(response);
+    QJsonArray list;
+    GraphResponse failed;
+    if (!allPages(graphFor(item.accountId), itemPath(item) + QStringLiteral("/versions"), &list, &failed)) {
+        *error = describe(failed);
         return {};
     }
     QVariantList result;
-    const QJsonArray list = response.json().value(QLatin1String("value")).toArray();
     for (const QJsonValue &value : list) {
         const QJsonObject version = value.toObject();
         result.append(QVariantMap{
@@ -415,6 +458,10 @@ QString ItemService::addShortcut(const Item &folder, QString *error)
 
 bool ItemService::restoreVersion(const Item &item, const QString &versionId, QString *error)
 {
+    if (!item.matchesLocal) {
+        *error = notSyncedYet(item);
+        return false;
+    }
     const GraphResponse response = graphFor(item.accountId)->postJson(itemPath(item) + QStringLiteral("/versions/%1/restoreVersion").arg(versionId), {});
     if (!response.ok()) {
         *error = describe(response);

@@ -36,6 +36,9 @@ public:
         // The account of the sync root it lies in: every call about the item uses its sign-in
         QString accountId;
         bool isFolder = false;
+        // The local file is this very item (not one new or renamed here and not online yet): only
+        // then may it be shared, have its access changed or a version restored
+        bool matchesLocal = false;
         bool valid() const
         {
             return !id.isEmpty();
@@ -43,6 +46,8 @@ public:
     };
 
     explicit ItemService(GraphClient *graph);
+    // Why a change to item is refused: the local file is not that item yet
+    static QString notSyncedYet(const Item &item);
     ~ItemService();
 
     // With more than one account: the Graph client of an account (the one given above for the

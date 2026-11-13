@@ -98,6 +98,14 @@ private Q_SLOTS:
         Auth::setLoginServerForTesting({});
     }
 
+    void unreachableWalletIsNotSignedOut()
+    {
+        // No KWallet on this bus: the read fails, which is not the same as "no sign-in stored"
+        Auth auth({clientA, tenant, userA});
+        QVERIFY(!auth.hasStoredRefreshToken());
+        QVERIFY(auth.keychainUnavailable());
+    }
+
     void reentrantCallsDoNotWait()
     {
         // The current account, so a sign-out that the holder carries out shows in the settings

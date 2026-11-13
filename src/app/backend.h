@@ -10,6 +10,7 @@
 
 #include <QHash>
 #include <QJsonObject>
+#include <QElapsedTimer>
 #include <QObject>
 #include <QPointer>
 #include <QThread>
@@ -61,10 +62,21 @@ class Backend : public QObject
     Q_PROPERTY(int downloadLimit READ downloadLimit WRITE setDownloadLimit NOTIFY advancedChanged)
     Q_PROPERTY(int uploadLimit READ uploadLimit WRITE setUploadLimit NOTIFY advancedChanged)
     Q_PROPERTY(int minimumFreeSpace READ minimumFreeSpace WRITE setMinimumFreeSpace NOTIFY advancedChanged)
+    // Dolphin shows thumbnails of online-only files (our thumbnail plugin in Dolphin's preview list)
+    Q_PROPERTY(bool dolphinPreviews READ dolphinPreviews WRITE setDolphinPreviews NOTIFY advancedChanged)
+    // Files On-Demand: free up files not opened for this many days; 0 = never
+    Q_PROPERTY(int freeUpAfterDays READ freeUpAfterDays WRITE setFreeUpAfterDays NOTIFY advancedChanged)
     Q_PROPERTY(QString excludePatterns READ excludePatterns WRITE setExcludePatterns NOTIFY advancedChanged)
     Q_PROPERTY(bool skipDotFiles READ skipDotFiles WRITE setSkipDotFiles NOTIFY advancedChanged)
 public:
-    explicit Backend(QObject *parent = nullptr);
+    // Window: the settings window and the setup wizard. Handler: one action without a window (open
+    // a .cloud file, Download Now, Copy Link, View Online, Add Personal): no takeover of an old
+    // install, no cache sweep, no organisation lookup before the action
+    enum class Use {
+        Window,
+        Handler,
+    };
+    explicit Backend(Use use = Use::Window, QObject *parent = nullptr);
     ~Backend() override;
     QString importState() const;
     QString importMessage() const;
@@ -93,6 +105,10 @@ public:
     void setUploadLimit(int kbps);
     int minimumFreeSpace() const; // MB
     void setMinimumFreeSpace(int megabytes);
+    bool dolphinPreviews() const;
+    int freeUpAfterDays() const;
+    void setFreeUpAfterDays(int days);
+    void setDolphinPreviews(bool on);
     QString excludePatterns() const; // one pattern per line
     void setExcludePatterns(const QString &patterns);
     bool skipDotFiles() const;
@@ -190,6 +206,11 @@ public:
     Q_INVOKABLE QVariantList childFolders(const QString &driveId, const QString &itemId, const QString &rootId = {});
     Q_INVOKABLE QVariantMap root(const QString &rootId);
     Q_INVOKABLE bool setExcludedFolders(const QString &rootId, const QStringList &paths);
+    // PC folder backup: [{key, title, localPath, problem, rootId}] for Desktop, Documents and
+    // Pictures; rootId is set when the folder is backed up already (with any account)
+    Q_INVOKABLE QVariantList backupFolders();
+    // Starts backing up these folders ("desktop", "documents", "pictures") to the account's OneDrive
+    Q_INVOKABLE bool startBackup(const QString &accountId, const QStringList &keys);
 
     // The SharePoint Sync button
     // accountId: the account the link is for (see odopenAccount); signInAccountId when that one is
@@ -282,11 +303,15 @@ private:
     // Resolved once per path and window; sets lastError when it fails
     ItemService::Item item(const QString &path);
     bool sendCommand(const QJsonObject &command);
+    // After a share, invite or unshare: the daemon reads the item's sharing again (emblem)
+    void sharingChanged(const QString &path);
     void updateGeneral(const std::function<void(GeneralConfig &)> &change);
     // After either kind of sign-in: organisation name, and tell a running graphsyncd
     bool finishSignIn();
     // Asks graphsyncd to download the file behind a placeholder and waits until it is there
     bool hydrateAndWait(const QString &placeholderPath);
+    // Waits for these downloads (asked for already); returns how many failed or never finished
+    int waitForHydration(QStringList paths);
 
     std::unique_ptr<Auth> m_auth;
     QPointer<QThread> m_importThread;
@@ -306,7 +331,12 @@ private:
     // The account of the sync root holding path (empty: none)
     static QString accountOfPath(const QString &path);
     std::unique_ptr<ItemService> m_itemService;
-    QHash<QString, ItemService::Item> m_items;
+    struct CachedItem {
+        ItemService::Item item;
+        QElapsedTimer age;
+    };
+    QHash<QString, CachedItem> m_items;
+    static constexpr qint64 itemCacheMs = 30000;
     QString m_deviceCode;
     QString m_deviceCodeAddress;
     std::atomic_bool m_cancelSignIn = false;
@@ -317,6 +347,10 @@ private:
     // once it returns
     bool m_restoreAfterSignIn = false;
     bool endSignIn(bool ok, const QString &error);
+    // m_auth follows the current account (another one made current, signed out, imported); while
+    // a sign-in runs or an account is being added that waits until it is over
+    void followCurrentAccount();
+    bool m_followAccountLater = false;
     // Work e-mail address of the account being added (pre-fills Microsoft's account picker)
     QString m_loginHint;
     bool m_busy = false;

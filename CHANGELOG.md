@@ -3,6 +3,173 @@
 All notable changes to Graph Sync (plasma-graphsync-linux). Versions follow the last finished
 development phase; the third number counts fixes.
 
+## 0.9.4 (2026-11-13)
+
+From the remaining findings of the review of the sync service, and from a sync cycle that hung while
+Microsoft's push notification service was down.
+
+**Fixed**
+- A shortcut ("Add shortcut to My files") that was removed online, moved out of the folder or no
+  longer synced moved its folder to the Trash at once, with changes made here that were not
+  uploaded yet. Those are now uploaded to the library first.
+- While Microsoft's push notification service was unavailable, every sync cycle waited up to many
+  minutes for it, and its refusals held back the account's other requests. It is now asked once,
+  and again after half an hour; polling covers the time in between.
+- Pausing, stopping a location and closing the sync service no longer wait for a request that is
+  still running (up to two minutes); several locations also stop at the same time instead of one
+  after the other.
+- Pausing for a very long time (about 25 days or more) ended the pause at once.
+- A request to keep files on this device with an unknown choice is refused instead of
+  downloading everything selected.
+- Dolphin: names with spaces at the start or end got no emblem; emblems could stay missing after
+  the sync service restarted; the emblem cache no longer grows without limit.
+- Download Now on many online-only files downloads them side by side instead of one after the
+  other.
+- View Online without a connection opened the wrong address for a file in a shortcut folder.
+- Making another account current or signing one out while a sign-in was still running could
+  store that sign-in under the wrong account; it now waits until the sign-in is done.
+- Starting syncing another account's OneDrive could name its folder after the current account's
+  organization.
+- `plasma-graphsync-linux --share` and `--versions` with a relative path, while the window was
+  already open, used the folder of the first start.
+- Opening an online-only or `.url` file, Download Now, Copy Link and View Online no longer start
+  the settings window's background work first (taking over an old install, organization lookup).
+- Sharing and Version History show every sharing link and version, not only the first page.
+- Taking over plasma-onedrive-linux settings could lose the settings from before the takeover
+  when copying failed (disk full) and was tried again.
+
+## 0.9.3 (2026-11-12)
+
+From new automated tests with large files, Office files, two accounts and network loss, and from a
+full code and security review of the sync service and everything that takes input from outside
+(the security review found no vulnerabilities).
+
+**Fixed**
+- A location stopped because its folder was removed or moved (an unplugged disk) could start
+  syncing again after a pause, a resume or a change of settings.
+- "Delete Online Too" in an older "many files removed" notification no longer applies to items
+  that went missing after it; the question is asked again.
+- Sharing, changing access to or restoring a version of a file that is new or renamed here and not
+  online yet no longer acts on the old online file of that name; the app also keeps the items it
+  looked up only briefly.
+- KWallet not open yet at login no longer counts as signed out, and no longer switches the current
+  account; it is tried again for a few minutes.
+- Opening an online-only file works while syncing is paused, and one that was waiting while its
+  location restarted no longer waits forever.
+- Removing a location also removes its database's log files (a shortcut added again could get
+  old state back).
+- `graphsyncctl`: add-root checks the folder like the app does and goes through the running sync
+  service; sync refuses a location the sync service already syncs; remove-root and sync take a
+  name only when one location has it; download uses the file's own account.
+- File, folder and account names in notifications are shown as text, never as links or markup.
+- PC folder backup no longer starts when the state of the OneDrive location cannot be read; Stop
+  Backup says that the OneDrive location keeps leaving the folder out.
+- A large upload (over 4 MB) cut off by a crash or power loss was not resumed: the new upload
+  clashed with the unfinished one and the file ended up online as a conflict copy of itself. The
+  upload is now resumed, and an unfinished leftover online is replaced.
+
+## 0.9.2 (2026-11-12)
+
+Fixes from a full review of the sync engine, with new automated tests against a real OneDrive.
+Most of these concern versions before 0.9 as well.
+
+**Fixed: files lost or deleted by mistake** (to the recycle bin online, unless noted)
+- An online-only file moved into a new folder here was deleted online.
+- A file or folder renamed here to a name SharePoint does not allow (such as one with ":") was
+  deleted online, for a folder with everything in it. It now stays as it is online, with a message.
+- A move or rename here that failed online for another reason (a lock, a server error) deleted the
+  item online; it now stays and is tried again.
+- A file deleted online and uploaded again under the same name (within one sync) was deleted
+  here and online.
+- Changes made here were lost (also not in the recycle bin) when a file changed here and online
+  had a name too long for a conflict copy, or when a download finished over a new file saved
+  where an online-only file was, or over a change made while it downloaded. Such work is now kept
+  as a conflict copy, or the download waits.
+- A folder renamed online to a name too long for this computer was thrown away here at the
+  regular full check.
+- Two files whose names were swapped online ended up with conflict names online.
+- With a Files On-Demand folder location, a new online folder could download its files twice at
+  the same time; the hash check caught it, but without one a damaged file could have been kept.
+- A folder deleted here was deleted online without checking for new files in it when that check
+  failed; a file briefly missing (an editor saving it) could be deleted online; pausing during a
+  sync could remove files here that were just being moved online; a small location (50 items or
+  fewer) whose folder was emptied, such as an unmounted disk, was not protected by the
+  "many files removed" question.
+- Freeing up space could remove a file that was saved at that very moment.
+
+**Fixed: other**
+- One file that cannot be read here (permissions) no longer stops all other uploads with a false
+  "no connection" state.
+- Renaming a folder with many files here no longer asks the "many files removed" question.
+- With too little disk space for downloads, changes made here are still uploaded.
+- An item that failed and could not be fetched again because of a server error is no longer
+  forgotten until the next full check; "Check All Files Again" and a changed folder choice made
+  during a sync are no longer undone by that sync; a file opened while a sync downloads is fetched
+  between two batches instead of in the middle of one.
+
+## 0.9.1 (2026-11-12)
+
+Fixes from a code and security review of 0.9.0 (the security review found no vulnerabilities).
+
+**Fixed**
+- PC folder backup: when adding the backup location fails, the OneDrive location no longer keeps
+  leaving that folder out (it would have been synced nowhere); a backup is no longer refused for
+  good when the OneDrive location shows an error for an unrelated file; trying again after one
+  folder failed only starts the folders not backed up yet.
+- The "Shared" emblem no longer disappears from a file that is downloaded again after a failed
+  attempt; removing the last link of a OneDrive file takes the emblem away (the owner's own
+  permission alone is no sharing).
+- Automatic free up space leaves files alone that are about to be downloaded because they changed
+  online, and recognises Word's lock file for every name length.
+
+**Changed**
+- The sync service only watches which files programs open while automatic free up space is on for
+  that location, and only keeps that record then; builds and checkouts in synced folders no longer
+  wake it otherwise.
+- Previews of online-only files are fetched by the file's id instead of its path; previews that
+  Dolphin stopped waiting for are no longer fetched, and several requests for the same file are
+  fetched once.
+- A test setting for automatic free up space is only built into development builds, never into
+  packages.
+
+## 0.9.0 (2026-11-12)
+
+Phase 9: closer to the Windows client.
+
+**Added**
+- PC folder backup (Settings > Sync > Back Up Folders…, or `graphsyncctl backup-folders`):
+  Desktop, Documents and Pictures kept in the account's OneDrive, in the folders of the same names
+  the Windows client uses. The folders stay where they are on this computer, keep their icons and
+  each becomes a location of its own; the OneDrive location leaves those folders out. Files
+  already in OneDrive there come down; a file with the same name but other content is kept as a
+  copy. A backup starts only when the OneDrive location is up to date, so no changes stay behind
+  in the folder it leaves out. Stop Backup ends the location and keeps the files here and online.
+- A "Shared" emblem in Dolphin on files and folders shared with others, and on what is inside a
+  shared folder: the same items the OneDrive website marks as shared. A share, invitation or
+  removed link from this computer (Share window, Copy Link, `graphsyncctl`) shows within
+  seconds; sharing changed elsewhere shows with the item's next change or the regular full
+  check, because Microsoft Graph does not report sharing changes to sync clients. After the last
+  link of a SharePoint file is removed the file keeps its own permissions, so it stays marked,
+  like on the website. Each location reads its full listing once after the update.
+- Previews of online-only files in Dolphin and the file dialogs, made by Microsoft and fetched
+  without downloading the files (a thumbnail plugin for the placeholders). Dolphin with its own
+  list of preview plugins: switch it on in Settings > Advanced > Files On-Demand.
+- Automatic free up space (Settings > Advanced > Files On-Demand): files not opened for a chosen
+  number of days become online-only again, in locations with Files On-Demand on. Files kept on
+  this computer, files with changes not uploaded yet and files a program has open (or an office
+  lock file next to them) stay. Works on disks mounted with noatime too: the sync service notes
+  which files are opened. Off by default.
+
+**Fixed**
+- The tray widget showed "Nothing is synced yet" and no status on Plasma 6.3 (Debian 13); it now
+  works with every Plasma 6 version.
+
+**Changed**
+- Free Up Space leaves a file alone while a program has it open; it is freed once it is closed.
+- `graphsyncctl remove-root` stops the location in the running sync service at once.
+- The sync service no longer reads every small file in each cycle to look for renamed
+  placeholders, only new and changed ones.
+
 ## 0.8.5 (2026-11-12)
 
 **Fixed**

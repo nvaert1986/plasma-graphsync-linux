@@ -6,7 +6,7 @@
 # --define "graphsync_client_id <id>" --define "graphsync_tenant_id <id>".
 
 Name:           plasma-graphsync-linux
-Version:        0.8.5
+Version:        0.9.4
 Release:        1%{?dist}
 Summary:        Sync OneDrive for Business and SharePoint libraries on KDE Plasma
 License:        GPL-3.0-or-later AND LGPL-3.0-or-later
@@ -86,6 +86,7 @@ the Sync button in SharePoint. Not affiliated with Microsoft.
 %{_mandir}/man1/plasma-graphsync-linux.1*
 %{_qt6_plugindir}/kf6/kfileitemaction/graphsyncactionplugin.so
 %{_qt6_plugindir}/kf6/overlayicon/graphsyncoverlayplugin.so
+%{_qt6_plugindir}/kf6/thumbcreator/graphsyncthumbnail.so
 %{_qt6_plugindir}/plasma/kcms/systemsettings/kcm_graphsync.so
 %{_datadir}/applications/io.github.nvaert1986.graphsync.desktop
 %{_datadir}/applications/io.github.nvaert1986.graphsync.download.desktop
@@ -105,6 +106,26 @@ the Sync button in SharePoint. Not affiliated with Microsoft.
 %endif
 
 %changelog
+* Fri Nov 13 2026 nvaert1986 <25772781+nvaert1986@users.noreply.github.com> - 0.9.4-1
+- Removed shortcuts upload their last changes before their folder goes to
+  the Trash; a sync cycle no longer hangs while Microsoft's push service is
+  down; see CHANGELOG.md.
+
+* Thu Nov 12 2026 nvaert1986 <25772781+nvaert1986@users.noreply.github.com> - 0.9.3-1
+- A large upload cut off by a crash is resumed instead of ending up as a
+  conflict copy; see CHANGELOG.md.
+
+* Thu Nov 12 2026 nvaert1986 <25772781+nvaert1986@users.noreply.github.com> - 0.9.2-1
+- Fixes from a full review of the sync engine (files lost or deleted by
+  mistake in rare cases); see CHANGELOG.md.
+
+* Thu Nov 12 2026 nvaert1986 <25772781+nvaert1986@users.noreply.github.com> - 0.9.1-1
+- Fixes from a code and security review of 0.9.0; see CHANGELOG.md.
+
+* Thu Nov 12 2026 nvaert1986 <25772781+nvaert1986@users.noreply.github.com> - 0.9.0-1
+- PC folder backup, "Shared" emblem, previews of online-only files,
+  automatic free up space; see CHANGELOG.md.
+
 * Thu Nov 12 2026 nvaert1986 <25772781+nvaert1986@users.noreply.github.com> - 0.8.5-1
 - Files On-Demand: files that became online-only were deleted online;
   see CHANGELOG.md.

@@ -14,7 +14,7 @@ GraphSync::Backend *makeBackend(QObject *parent)
 {
     // Accounts are shared by the suite; the app registration per account is this app's own
     GraphCore::Accounts::setApplication(QStringLiteral("plasma-graphsync-linux"));
-    return new GraphSync::Backend(parent);
+    return new GraphSync::Backend(GraphSync::Backend::Use::Window, parent);
 }
 }
 

@@ -11,7 +11,7 @@
 
 #include <QApplication>
 #include <QCommandLineParser>
-#include <QFileInfo>
+#include <QDir>
 #include <QIcon>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
@@ -28,19 +28,26 @@ struct StartRequest {
     QString argument;
 };
 
+// A path from the command line, relative to the folder the command ran in. A start forwarded
+// through KDBusService ran elsewhere than this instance: its own folder comes along.
+QString absolutePath(const QString &path, const QString &workingDirectory = {})
+{
+    return QDir::cleanPath(QDir(workingDirectory.isEmpty() ? QDir::currentPath() : workingDirectory).absoluteFilePath(path));
+}
+
 // Shared by the first start and by later starts forwarded through KDBusService, so both
 // open the same page for the same arguments
-StartRequest parseRequest(QCommandLineParser &parser, const Backend &backend)
+StartRequest parseRequest(QCommandLineParser &parser, const Backend &backend, const QString &workingDirectory = {})
 {
     const QStringList positional = parser.positionalArguments();
     if (!positional.isEmpty() && positional.constFirst().startsWith(QLatin1String("odopen:"))) {
         return {QStringLiteral("odopen"), positional.constFirst()};
     }
     if (parser.isSet(QStringLiteral("share"))) {
-        return {QStringLiteral("share"), QFileInfo(parser.value(QStringLiteral("share"))).absoluteFilePath()};
+        return {QStringLiteral("share"), absolutePath(parser.value(QStringLiteral("share")), workingDirectory)};
     }
     if (parser.isSet(QStringLiteral("versions"))) {
-        return {QStringLiteral("versions"), QFileInfo(parser.value(QStringLiteral("versions"))).absoluteFilePath()};
+        return {QStringLiteral("versions"), absolutePath(parser.value(QStringLiteral("versions")), workingDirectory)};
     }
     if (parser.isSet(QStringLiteral("choose-folders"))) {
         return {QStringLiteral("chooseFolders"), parser.value(QStringLiteral("choose-folders"))};
@@ -108,32 +115,39 @@ int main(int argc, char **argv)
     parser.process(app);
     about.processCommandLine(&parser);
 
-    Backend backend;
-    if (parser.isSet(QStringLiteral("add-personal"))) {
-        // Turned on from the settings: no window needed
-        return backend.addPersonal().isEmpty() ? 1 : 0;
-    }
-    // .url files ("Add shortcut to My files" on a file): open the address, no window
+    // .url files ("Add shortcut to My files" on a file): open the address; no window, no sign-in
     if (const QStringList positional = parser.positionalArguments();
         !positional.isEmpty() && positional.constFirst().endsWith(QLatin1String(".url"), Qt::CaseInsensitive)) {
         return Backend::openInternetShortcut(positional.constFirst());
     }
-    // Open With > Download Now: only download the placeholders' files; no window
-    if (parser.isSet(QStringLiteral("download"))) {
-        return backend.downloadPlaceholders(parser.positionalArguments());
+    // One action without a window
+    if (parser.isSet(QStringLiteral("add-personal"))) {
+        // Turned on from the settings
+        Backend handler(Backend::Use::Handler);
+        return handler.addPersonal().isEmpty() ? 1 : 0;
     }
-    // .cloud placeholders (Files On-Demand): download, then open in the default program; no window
+    if (parser.isSet(QStringLiteral("download"))) {
+        // Open With > Download Now: only download the placeholders' files
+        Backend handler(Backend::Use::Handler);
+        return handler.downloadPlaceholders(parser.positionalArguments());
+    }
     if (const QStringList positional = parser.positionalArguments();
         !positional.isEmpty() && positional.constFirst().endsWith(QLatin1String(".cloud"), Qt::CaseInsensitive)) {
-        return backend.openPlaceholder(positional.constFirst());
+        // .cloud placeholders (Files On-Demand): download, then open in the default program
+        Backend handler(Backend::Use::Handler);
+        return handler.openPlaceholder(positional.constFirst());
     }
     if (parser.isSet(QStringLiteral("view-online"))) {
-        return backend.viewOnline(QFileInfo(parser.value(QStringLiteral("view-online"))).absoluteFilePath());
+        Backend handler(Backend::Use::Handler);
+        return handler.viewOnline(absolutePath(parser.value(QStringLiteral("view-online"))));
     }
     if (parser.isSet(QStringLiteral("copy-link"))) {
-        // One click from Dolphin or the tray: no window, the result arrives as a notification
-        return backend.copyLink(QFileInfo(parser.value(QStringLiteral("copy-link"))).absoluteFilePath());
+        // One click from Dolphin or the tray: the result arrives as a notification
+        Backend handler(Backend::Use::Handler);
+        return handler.copyLink(absolutePath(parser.value(QStringLiteral("copy-link"))));
     }
+
+    Backend backend;
 
     // One instance, like OneDrive: a second start (menu, Sync button, tray) hands its
     // arguments to this one and exits. Screenshots (tests) always run on their own.
@@ -159,11 +173,11 @@ int main(int argc, char **argv)
     auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().constFirst());
 
     if (unique) {
-        QObject::connect(unique.get(), &KDBusService::activateRequested, &backend, [&backend, window](const QStringList &arguments, const QString &) {
+        QObject::connect(unique.get(), &KDBusService::activateRequested, &backend, [&backend, window](const QStringList &arguments, const QString &workingDirectory) {
             QCommandLineParser forwarded;
             setupParser(forwarded);
             forwarded.parse(arguments);
-            const StartRequest request = parseRequest(forwarded, backend);
+            const StartRequest request = parseRequest(forwarded, backend, workingDirectory);
             Q_EMIT backend.activateRequested(request.mode, request.argument);
             // The Wayland activation token arrives with the request; without it KWin would
             // only flash the task bar entry

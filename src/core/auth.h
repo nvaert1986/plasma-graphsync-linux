@@ -49,6 +49,12 @@ public:
     // forceRefresh is used after a 401 from Graph.
     QString accessToken(QString *error, bool forceRefresh = false);
 
+    // The last KWallet read failed for another reason than a missing entry (wallet not open yet,
+    // access refused): whether this account is signed in is unknown
+    bool keychainUnavailable() const
+    {
+        return m_keychainUnavailable.load();
+    }
     bool hasStoredRefreshToken();
     void logout();
 
@@ -124,6 +130,7 @@ private:
     std::optional<AuthConfig> m_pendingConfig;
     bool m_pendingLogout = false;
     // Whether a refresh token is known, for hasStoredRefreshToken() while the tokens are in use
+    std::atomic_bool m_keychainUnavailable = false;
     std::atomic_bool m_haveRefreshToken{false};
     void applyPendingLocked();
     void logoutLocked();

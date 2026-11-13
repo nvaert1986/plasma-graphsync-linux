@@ -9,8 +9,6 @@
 #include "localscanner.h"
 #include "statedb.h"
 
-#include <QMutex>
-
 #include <QDateTime>
 #include <QElapsedTimer>
 #include <QHash>
@@ -78,8 +76,10 @@ public:
         QStringList excluded;
         // The user's own exclusions (patterns, dot-files; .nosync is checked on disk)
         IgnoreRules::UserRules userRules;
-        // Files On-Demand: online-only files (relative paths of the real files)
-        QSet<QString> dehydrated;
+        // Files On-Demand: online-only files (relative path of the real file -> item id)
+        QHash<QString, QString> dehydrated;
+        // Items shared with others (their own sharing); their contents count as shared too
+        QSet<QString> shared;
     };
     std::shared_ptr<const StatusSnapshot> statusSnapshot() const;
 
@@ -115,6 +115,11 @@ public Q_SLOTS:
     // batches of the running cycle. rel is the real file's path (without .cloud).
     void requestHydrate(const QString &rel);
     void requestPin(const QString &rel, StateDb::Pin pin);
+    // Sharing changes are not in the delta feed: after a share or unshare from this computer the
+    // item's own permissions are read again (rel = the real file's path, or a folder's)
+    void requestSharingCheck(const QString &rel);
+    // The file watcher saw rel opened (thread-safe; written to the state at the next cycle)
+    void noteOpened(const QString &rel);
 
 Q_SIGNALS:
     void statusChanged(const QVariantMap &status);
@@ -156,18 +161,22 @@ private:
     };
     DeleteContext deleteContext() const;
     void deleteLocalSubtree(const QString &id, bool becauseExcluded, DeleteContext &context, bool checked);
+    // Only the state of an item and everything below it; nothing on disk changes
+    void dropSubtreeRows(const QString &id, const DeleteContext &context);
     void checkSubtree(const QString &id, const QString &rel, DeleteContext &context) const;
     // Moves a folder whose contents are all synced and unchanged to the Trash as one entry
     bool trashWholeFolder(const QString &id, const QString &rel, bool becauseExcluded, const DeleteContext &context);
     bool isExcluded(const QString &rel) const;
     void purgeExcluded();
-    QList<DriveItem> fetchRetryItems(QHash<QString, int> *attempts);
+    // unreachable gets the ids that could not be fetched now; they stay on the retry list
+    QList<DriveItem> fetchRetryItems(QHash<QString, int> *attempts, QStringList *unreachable);
     void fetchQuota();
     bool download(const DriveItem &item, const QString &rel);
     // With a download limit: the file in paced pieces (HTTP Range)
     bool downloadInPieces(const DriveItem &item, const QString &rel);
     bool finishDownload(const DriveItem &item, const QString &rel, const QString &tmp, const GraphResponse &response);
     void runQueuedDownloads();
+    void queueDownload(const DriveItem &item, const QString &rel);
     QString tempPathFor(const DriveItem &item, const QString &rel) const;
 
     // Local -> remote
@@ -175,6 +184,9 @@ private:
     void rebuildPathIndex();
     bool createRemoteFolder(const QString &rel, quint64 inode);
     bool moveRemote(const QString &id, const QString &newRel);
+    // moveRemote for a move or rename recognised here; false (with the reason in the activity)
+    // when it did not happen online, so the caller keeps the item from being deleted online
+    bool moveRemoteOrKeep(const QString &id, const QString &oldRel, const QString &newRel);
     bool uploadNew(const QString &rel);
     void finishUploadNew(const QString &rel, const QString &parentId, const QString &hash, const std::optional<LocalEntry> &before,
                          const DriveItem &item);
@@ -200,8 +212,12 @@ private:
     bool createPlaceholder(const DriveItem &item, const QString &rel);
     bool dehydrate(const QString &id, const QString &rel);
     void applyPins();
+    // Files On-Demand: files not opened for GeneralConfig::freeUpAfterDays become online-only
+    // (at most every few hours; never kept, changed, open or office-locked files)
+    void autoFreeUp();
     Q_INVOKABLE void processRequests();
     bool hydrateNow(const QString &rel, QString *error);
+    void checkSharingNow(const QString &rel);
     // Transfer progress for the tray (files and bytes of the current batch of transfers)
     void beginTransfers(int files, qint64 bytes);
     void transferFinished();
@@ -224,10 +240,16 @@ private:
     QString absPath(const QString &rel) const;
     bool localChangedSinceBaseline(const ItemRow &row, const LocalEntry &entry, const QString &rel) const;
     QString makeConflictCopy(const QString &rel);
+    // The id of the synced item at rel (by its state), or empty
+    QString knownItemAt(const QString &rel) const;
+    void moveWaits(const QString &fromRel, const QString &toRel);
     bool moveLocal(const QString &fromRel, const QString &toRel);
     void storeLocalBaseline(ItemRow &row, const QString &rel, const QString &hash);
     QString itemPath(const QString &id) const;
     void saveRow(const ItemRow &row);
+    // Commits every so many writes, so a long cycle keeps its progress
+    void countWrite();
+    static bool remoteContentChanged(const ItemRow &row, const DriveItem &item);
     void dropRow(const QString &id);
 
     void log(const QString &message, const QString &action = {}, const QString &rel = {}, const QString &by = {});
@@ -258,13 +280,16 @@ private:
         QString rel;
     };
     QList<QueuedDownload> m_downloadQueue;
+    // Item id -> its place in m_downloadQueue (queueDownload)
+    QHash<QString, qsizetype> m_downloadIndex;
     QStringList m_uploadQueue;
     int m_uncommitted = 0;
     QSet<QString> m_failedIds;
     QSet<QString> m_errorPaths;
     QSet<QString> m_busyPaths;
     QHash<QString, StatusSnapshot::Entry> m_knownCache;
-    QSet<QString> m_dehydratedCache;
+    QHash<QString, QString> m_dehydratedCache;
+    QSet<QString> m_sharedCache;
     std::shared_ptr<const StatusSnapshot> m_snapshot;
     bool m_excludedDirty = false;
     // Settings of the current cycle (read at its start)
@@ -289,22 +314,39 @@ private:
     QMutex m_requestMutex;
     QStringList m_hydrateRequests;
     QList<QPair<QString, StateDb::Pin>> m_pinRequests;
+    QStringList m_sharingRequests;
+    QHash<QString, qint64> m_opened;
     QHash<QString, Shortcut> m_shortcuts;
+    // Remote phase: paths of known items that move in the current batch, and items parked under a
+    // temporary name because another one moved onto their place (old path -> parked path)
+    QSet<QString> m_movingAway;
+    QHash<QString, QString> m_parked;
+    // Set by moveLocal when it did not move because another synced item is still at the destination
+    bool m_moveWaits = false;
     // Relative paths of removed shortcuts whose folder the daemon has yet to move to the Trash;
     // never uploaded in the meantime
     QStringList m_detachedShortcuts;
     // 0 = ask, 1 = delete online once, 2 = restore missing items
     int m_bigDeleteDecision = 0;
+    // The items missing when the big-delete question was asked: "delete" covers no more than these
+    QSet<QString> m_bigDeleteAskedFor;
     bool m_forceResync = false;
+    // Exclusions changed or Check All Files Again while a cycle ran: it must not keep its delta position
+    bool m_startOver = false;
     Stats m_stats;
 
     // Coalescing and control
     bool m_running = false;
+    // processRequests may run inside a cycle only while this is set (between download batches)
+    bool m_atSafePoint = false;
     bool m_pending = false;
     std::atomic_bool m_paused = false;
     std::atomic_bool m_cancel = false;
 
     QDateTime m_pushExpires;
+    // After a failed push endpoint request: not asked again before this
+    QDateTime m_pushRetryAt;
+    static constexpr int pushRetryMinutes = 30;
 
     mutable QMutex m_statusMutex;
     QVariantMap m_status;

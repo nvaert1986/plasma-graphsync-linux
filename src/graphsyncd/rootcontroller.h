@@ -8,6 +8,7 @@
 #include "config.h"
 #include "syncengine.h"
 
+#include <QDateTime>
 #include <QObject>
 #include <QThread>
 #include <QTimer>
@@ -37,6 +38,10 @@ public:
         return m_auth;
     }
     QString localPath() const;
+    const RootConfig &config() const
+    {
+        return m_root;
+    }
     std::shared_ptr<const SyncEngine::StatusSnapshot> snapshot() const;
     QVariantMap status() const;
     QVariantList activity() const;
@@ -48,7 +53,18 @@ public:
     // Files On-Demand; rel is the real file's path below the root
     void hydrate(const QString &rel);
     void pin(const QString &rel, StateDb::Pin pin);
+    // A share or unshare from this computer: read the item's sharing again (for the emblem)
+    void checkSharing(const QString &rel);
     void setPaused(bool paused);
+    // Stops the engine without waiting for it (the destructor waits): several stop together
+    void beginStop();
+    // A removed shortcut: sync once more (local changes go up), then drained(); asked again after
+    // a cycle with errors or offline, until one is clean
+    void drain();
+    bool isDrained() const
+    {
+        return m_drained;
+    }
     void setExcludedPaths(const QStringList &paths);
     void resolveBigDelete(const QString &action);
 
@@ -64,6 +80,7 @@ Q_SIGNALS:
     // The shortcuts in this root, after every cycle (see SyncEngine::shortcutsChanged)
     void shortcutsChanged(const QVariantList &shortcuts, const QStringList &removedPaths);
     void hydrated(const QString &rel, bool ok, const QString &error);
+    void drained();
 
 private:
     void scheduleSync(int delayMs);
@@ -80,6 +97,9 @@ private:
     QTimer m_poll;
     bool m_paused = false;
     QString m_haltReason;
+    bool m_stopping = false;
+    QDateTime m_drainSince;
+    bool m_drained = false;
 };
 
 }

@@ -33,6 +33,9 @@ struct ItemRow {
     // Files On-Demand: only a placeholder (<name>.cloud) is on disk; the local baseline then
     // describes the placeholder file (its inode, to follow renames)
     bool dehydrated = false;
+
+    // Shared with others (its own sharing, from the delta feed); the emblem covers its contents too
+    bool shared = false;
 };
 
 // Per-root SQLite state. Opened and used from a single thread (the root's sync worker).
@@ -55,6 +58,11 @@ public:
     void begin();
     void commit();
 
+    // Read-only, from another process than the sync engine (the app, graphsyncctl): whether the
+    // local file at path is the synced item itemId of location rootId (same inode as recorded;
+    // for an online-only file its placeholder's). False when the state does not know the item.
+    static bool localMatches(const QString &rootId, const QString &itemId, const QString &path);
+
     // Files On-Demand pins per relative path: what the user chose for a file or folder
     enum class Pin {
         AlwaysKeep = 1, // downloaded and kept
@@ -68,6 +76,13 @@ public:
     // A file or folder moved: its pin and the pins below it move along
     void movePins(const QString &fromRel, const QString &toRel);
     void removePins(const QStringList &rels);
+
+    // Automatic free up space: when files were last opened (seconds since the epoch), by
+    // relative path, as the file watcher saw it; recorded since meta "openedSince"
+    QHash<QString, qint64> loadOpened() const;
+    void noteOpened(const QHash<QString, qint64> &opened);
+    void removeOpened(const QStringList &rels);
+    void clearOpened();
 
 private:
     QString m_connectionName;

@@ -5,6 +5,8 @@
 #include "statedb.h"
 
 #include <QDir>
+#include <QSqlDatabase>
+#include <QSqlQuery>
 #include <QStandardPaths>
 #include <QTest>
 #include <QUuid>
@@ -102,6 +104,78 @@ private Q_SLOTS:
         const auto pins = m_db->loadPins();
         QCOMPARE(pins.size(), 1);
         QCOMPARE(pins.value(QStringLiteral("😀 map 😀/doc.txt")), Pin::OnlineOnly);
+    }
+
+    void sharedRoundTrip()
+    {
+        ItemRow row;
+        row.id = QStringLiteral("A");
+        row.name = QStringLiteral("a.txt");
+        row.shared = true;
+        m_db->upsert(row);
+        row.id = QStringLiteral("B");
+        row.shared = false;
+        m_db->upsert(row);
+        const auto items = m_db->loadItems();
+        QVERIFY(items.value(QStringLiteral("A")).shared);
+        QVERIFY(!items.value(QStringLiteral("B")).shared);
+    }
+
+    void upgradeAddsSharedColumn()
+    {
+        // A state database of 0.8 (schema 2, no "shared" column) with one item
+        m_db.reset();
+        const QString path = QDir(Config::stateDirectory()).filePath(m_rootId + QStringLiteral(".sqlite3"));
+        QFile::remove(path);
+        {
+            QSqlDatabase old = QSqlDatabase::addDatabase(QStringLiteral("QSQLITE"), QStringLiteral("old"));
+            old.setDatabaseName(path);
+            QVERIFY(old.open());
+            QSqlQuery q(old);
+            QVERIFY(q.exec(QStringLiteral("CREATE TABLE items (id TEXT PRIMARY KEY, parent_id TEXT, name TEXT NOT NULL, is_folder INTEGER NOT NULL,"
+                                          " r_etag TEXT, r_ctag TEXT, r_hash TEXT, r_size INTEGER, l_hash TEXT, l_size INTEGER, l_mtime_ns INTEGER,"
+                                          " l_inode INTEGER, dehydrated INTEGER NOT NULL DEFAULT 0)")));
+            QVERIFY(q.exec(QStringLiteral("INSERT INTO items (id, name, is_folder) VALUES ('X', 'x.txt', 0)")));
+            old.close();
+        }
+        QSqlDatabase::removeDatabase(QStringLiteral("old"));
+
+        m_db = std::make_unique<StateDb>(m_rootId);
+        QString error;
+        QVERIFY2(m_db->open(&error), qPrintable(error));
+        auto items = m_db->loadItems();
+        QCOMPARE(items.size(), 1);
+        QVERIFY(!items.value(QStringLiteral("X")).shared);
+        ItemRow row = items.value(QStringLiteral("X"));
+        row.shared = true;
+        m_db->upsert(row);
+        QVERIFY(m_db->loadItems().value(QStringLiteral("X")).shared);
+        QCOMPARE(m_db->meta(QStringLiteral("schema")), QStringLiteral("4"));
+    }
+
+    void openedKeepsTheLatestTime()
+    {
+        m_db->noteOpened({{QStringLiteral("a.txt"), 2000}, {QStringLiteral("b.txt"), 3000}});
+        m_db->noteOpened({{QStringLiteral("a.txt"), 1000}});
+        m_db->noteOpened({{QStringLiteral("b.txt"), 4000}});
+        auto opened = m_db->loadOpened();
+        QCOMPARE(opened.value(QStringLiteral("a.txt")), 2000);
+        QCOMPARE(opened.value(QStringLiteral("b.txt")), 4000);
+        m_db->removeOpened({QStringLiteral("a.txt")});
+        opened = m_db->loadOpened();
+        QCOMPARE(opened.size(), 1);
+        QVERIFY(opened.contains(QStringLiteral("b.txt")));
+    }
+
+    void openedSinceIsWrittenOnce()
+    {
+        const QString since = m_db->meta(QStringLiteral("openedSince"));
+        QVERIFY(since.toLongLong() > 0);
+        m_db.reset();
+        m_db = std::make_unique<StateDb>(m_rootId);
+        QString error;
+        QVERIFY(m_db->open(&error));
+        QCOMPARE(m_db->meta(QStringLiteral("openedSince")), since);
     }
 
     void removePinsExactOnly()

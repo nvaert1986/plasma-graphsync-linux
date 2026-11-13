@@ -54,6 +54,13 @@ Print the page where an administrator of that organisation approves the app regi
 .B add\-personal \fR[\fP\-\-local \fIPATH\fP\fR]\fP
 Sync the current account's own OneDrive.
 .TP
+.B backup\-folders desktop\fR|\fPdocuments\fR|\fPpictures \fR...\fP
+PC folder backup: keep these folders of this computer in the current account's OneDrive, in its
+folders Desktop, Documents and Pictures. The folders stay where they are; the OneDrive location
+leaves those folders out. Stop a backup with
+.BR remove\-root ;
+the files stay here and online.
+.TP
 .B drives \-\-site\-url \fIURL\fP
 List the document libraries of a SharePoint site.
 .TP

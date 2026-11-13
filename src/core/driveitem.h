@@ -33,6 +33,12 @@ struct DriveItem {
     QString cTag;
     QString quickXorHash;
     QDateTime modified;
+    // Shared with others: only meaningful in the delta feed asked with "Prefer: hierarchicalsharing"
+    // (then only items with sharing of their own carry it); without that header, and in folder
+    // listings, every item of a SharePoint library counts as shared with the site's members
+    bool shared = false;
+    // Set only for items from that delta feed: other answers say nothing about the sharing
+    bool sharingKnown = false;
 
     static DriveItem fromJson(const QJsonObject &json);
     // Microsoft never sends names with a slash, NUL, "." or ".." or ids with odd characters, but a

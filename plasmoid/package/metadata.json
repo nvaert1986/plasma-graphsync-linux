@@ -13,7 +13,7 @@
         "Id": "io.github.nvaert1986.graphsync.tray",
         "License": "GPL-3.0-or-later",
         "Name": "Graph Sync",
-        "Version": "0.8.5",
+        "Version": "0.9.4",
         "Website": "https://github.com/nvaert1986/plasma-graphsync-linux"
     },
     "X-Plasma-API-Minimum-Version": "6.0",

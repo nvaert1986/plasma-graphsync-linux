@@ -25,6 +25,7 @@ DriveItem DriveItem::fromJson(const QJsonObject &json)
         item.remoteWebUrl = remote.value(QLatin1String("webUrl")).toString();
         item.remoteIsFolder = remote.contains(QLatin1String("folder"));
     }
+    item.shared = json.contains(QLatin1String("shared")) && !item.isRoot;
     item.size = json.value(QLatin1String("size")).toInteger();
     const QJsonObject modifiedBy = json.value(QLatin1String("lastModifiedBy")).toObject().value(QLatin1String("user")).toObject();
     item.modifiedById = modifiedBy.value(QLatin1String("id")).toString();

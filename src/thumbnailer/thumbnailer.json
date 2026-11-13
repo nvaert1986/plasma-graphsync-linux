@@ -1,0 +1,13 @@
+{
+    "CacheThumbnail": true,
+    "KPlugin": {
+        "Description": "Previews of files that are only online (Graph Sync Files On-Demand)",
+        "Description[nl]": "Voorbeelden van bestanden die alleen online staan (Graph Sync Bestanden op aanvraag)",
+        "EnabledByDefault": true,
+        "MimeTypes": [
+            "application/x-plasma-graphsync-linux-placeholder"
+        ],
+        "Name": "Online-only files (Graph Sync)",
+        "Name[nl]": "Alleen online bestanden (Graph Sync)"
+    }
+}

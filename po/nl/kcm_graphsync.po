@@ -4,7 +4,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: kcm_graphsync\n"
-"PO-Revision-Date: 2026-11-12 08:55+0100\n"
+"PO-Revision-Date: 2026-11-13 08:36+0100\n"
 "Last-Translator: plasma-graphsync-linux contributors\n"
 "Language-Team: Dutch\n"
 "Language: nl\n"
@@ -55,6 +55,9 @@ msgstr "Het account van deze locatie staat niet meer op deze computer. Meld je e
 msgid "The app registration is not configured (client and tenant ID)."
 msgstr "De app-registratie is niet ingesteld (client- en tenant-ID)."
 
+msgid "Finish or cancel the sign-in first."
+msgstr "Rond eerst het aanmelden af of annuleer het."
+
 msgid "Enter your work e-mail address."
 msgstr "Vul je zakelijke e-mailadres in."
 
@@ -63,6 +66,9 @@ msgstr "Dat is geen SharePoint-adres."
 
 msgid "The account of %1 is no longer on this computer. Sign in to it again in Settings > Accounts."
 msgstr "Het account van %1 staat niet meer op deze computer. Meld je er opnieuw bij aan via Instellingen > Accounts."
+
+msgid "The account of this backup is no longer on this computer."
+msgstr "Het account van deze back-up staat niet meer op deze computer."
 
 msgid "This link does not contain a SharePoint library."
 msgstr "Deze link bevat geen SharePoint-bibliotheek."
@@ -171,17 +177,38 @@ msgstr "Bijgewerkt, laatst gesynchroniseerd %1"
 msgid "Waiting for the first sync"
 msgstr "Wacht op de eerste synchronisatie"
 
+msgid "Stop Backup?"
+msgstr "Back-up stoppen?"
+
 msgid "Stop Syncing?"
 msgstr "Synchroniseren stoppen?"
 
+msgid "%1 will no longer be backed up to OneDrive. The files stay in %2 and online; changes are no longer synced. The OneDrive location keeps leaving this folder out; to have it there, choose it again under Choose Folders."
+msgstr "Van %1 wordt geen back-up meer gemaakt in OneDrive. De bestanden blijven in %2 en online staan; wijzigingen worden niet meer gesynchroniseerd. De OneDrive-locatie blijft deze map overslaan; wil je hem daar hebben, kies hem dan opnieuw onder Mappen kiezen."
+
 msgid "%1 will no longer be synced. The files stay online, and the local copies in %2 are kept as ordinary files."
 msgstr "%1 wordt niet meer gesynchroniseerd. De bestanden blijven online staan en de lokale kopieën in %2 blijven bewaard als gewone bestanden."
+
+msgid "Stop Backup"
+msgstr "Back-up stoppen"
 
 msgid "Stop Syncing"
 msgstr "Synchroniseren stoppen"
 
 msgid "Cancel"
 msgstr "Annuleren"
+
+msgid "Back Up Folders to OneDrive"
+msgstr "Back-up van mappen in OneDrive"
+
+msgid "These folders stay where they are on this computer and are kept in OneDrive too, in folders of the same names, like on Windows. Files already in OneDrive there come here as well; files with the same name but other content are kept as a copy. The OneDrive location leaves these folders out, so nothing is synced twice."
+msgstr "Deze mappen blijven op deze computer staan waar ze staan en worden ook in OneDrive bewaard, in mappen met dezelfde namen, zoals op Windows. Bestanden die daar al in OneDrive staan, komen ook hierheen; bestanden met dezelfde naam maar een andere inhoud worden als kopie bewaard. De OneDrive-locatie slaat deze mappen over, zodat niets dubbel wordt gesynchroniseerd."
+
+msgid "%1 is backed up already."
+msgstr "Van %1 wordt al een back-up gemaakt."
+
+msgid "Start Backup"
+msgstr "Back-up starten"
 
 msgid "Sign Out of This Computer?"
 msgstr "Afmelden op deze computer?"
@@ -263,6 +290,9 @@ msgstr "Bibliotheek toevoegen…"
 
 msgid "Use the Sync button in SharePoint, or add a library here."
 msgstr "Gebruik de knop Synchroniseren in SharePoint of voeg hier een bibliotheek toe."
+
+msgid "Back Up Folders…"
+msgstr "Back-up van mappen…"
 
 msgid "Sign In…"
 msgstr "Aanmelden…"
@@ -398,6 +428,27 @@ msgstr "Altijd vrij houden:"
 msgctxt "megabytes"
 msgid "MB"
 msgstr "MB"
+
+msgid "Files On-Demand"
+msgstr "Bestanden op aanvraag"
+
+msgid "Free up files not opened for"
+msgstr "Ruimte vrijmaken van bestanden die niet geopend zijn in"
+
+msgid "Only in locations with Files On-Demand switched on. Files you chose to always keep on this computer, files with changes not uploaded yet and files that are open stay. Checked a few times a day."
+msgstr "Alleen in locaties waar Bestanden op aanvraag aanstaat. Bestanden die je altijd op deze computer wilt houden, bestanden met wijzigingen die nog niet zijn geüpload en bestanden die open zijn, blijven staan. Wordt een paar keer per dag gecontroleerd."
+
+msgctxt "free up files not opened for"
+msgid "day"
+msgid_plural "days"
+msgstr[0] "dag"
+msgstr[1] "dagen"
+
+msgid "Show previews of online-only files in Dolphin"
+msgstr "Voorbeelden tonen in Dolphin van bestanden die alleen online staan"
+
+msgid "Microsoft makes the previews; they are fetched without downloading the files. Takes effect when Dolphin is started again."
+msgstr "Microsoft maakt de voorbeelden; ze worden opgehaald zonder de bestanden te downloaden. Werkt nadat Dolphin opnieuw is gestart."
 
 msgid "App Registration"
 msgstr "App-registratie"

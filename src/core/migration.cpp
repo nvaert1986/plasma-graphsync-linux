@@ -251,13 +251,34 @@ Result importLegacyInstall(QString *message, int lockTimeoutMs)
 
     repointDefaultHandlers();
 
-    // Settings written while the import was pending (no finished setup) give way to the old setup
-    if (QFileInfo::exists(newConfig)) {
-        const QString backup = newConfig + QStringLiteral(".before-import");
-        QFile::remove(backup);
-        QFile::rename(newConfig, backup);
+    // Copied next to it first: a failed copy (disk full) leaves the current settings as they are
+    const QString incoming = newConfig + QStringLiteral(".importing");
+    QFile::remove(incoming);
+    if (!QFile::copy(oldConfig, incoming)) {
+        QFile::remove(incoming);
+        *message = QStringLiteral("could not copy %1 to %2").arg(oldConfig, newConfig);
+        return Result::Failed;
     }
-    if (!QFile::copy(oldConfig, newConfig)) {
+    // Settings written while the import was pending (no finished setup) give way to the old setup.
+    // They are kept, and an earlier attempt's copy is never overwritten (it may be the only one
+    // of the settings from before any import)
+    QString backup;
+    if (QFileInfo::exists(newConfig)) {
+        backup = newConfig + QStringLiteral(".before-import");
+        for (int n = 1; QFileInfo::exists(backup); ++n) {
+            backup = newConfig + QStringLiteral(".before-import.%1").arg(n);
+        }
+        if (!QFile::rename(newConfig, backup)) {
+            QFile::remove(incoming);
+            *message = QStringLiteral("could not keep %1 aside").arg(newConfig);
+            return Result::Failed;
+        }
+    }
+    if (!QFile::rename(incoming, newConfig)) {
+        if (!backup.isEmpty()) {
+            QFile::rename(backup, newConfig);
+        }
+        QFile::remove(incoming);
         *message = QStringLiteral("could not copy %1 to %2").arg(oldConfig, newConfig);
         return Result::Failed;
     }

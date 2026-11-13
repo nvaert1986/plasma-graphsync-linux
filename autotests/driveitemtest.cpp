@@ -4,6 +4,7 @@
 #include "driveitem.h"
 #include "ignorerules.h"
 
+#include <QJsonDocument>
 #include <QTest>
 
 using namespace GraphSync;
@@ -43,6 +44,19 @@ private Q_SLOTS:
         QVERIFY(!DriveItem::isSafeId(QString()));
         QVERIFY(!DriveItem::isSafeId(QStringLiteral("../x")));
         QVERIFY(!DriveItem::isSafeId(QStringLiteral("a b")));
+    }
+
+    void sharedFacet()
+    {
+        // Delta asked with "Prefer: hierarchicalsharing": only items with sharing of their own
+        // carry the facet; the root carries an empty one, which is not "shared with others"
+        const auto parse = [](const char *json) {
+            return DriveItem::fromJson(QJsonDocument::fromJson(json).object());
+        };
+        QVERIFY(parse(R"({"id":"A","name":"a.txt","file":{},"shared":{"scope":"users"}})").shared);
+        QVERIFY(parse(R"({"id":"B","name":"b","folder":{},"shared":{"scope":"organization"}})").shared);
+        QVERIFY(!parse(R"({"id":"C","name":"c.txt","file":{}})").shared);
+        QVERIFY(!parse(R"({"id":"R","name":"root","folder":{},"root":{},"shared":{}})").shared);
     }
 
     void ignoredNamesIncludeOldTempFiles()

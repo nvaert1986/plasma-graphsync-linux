@@ -39,6 +39,11 @@ RootConfig rootFromJson(const QJsonObject &json)
     root.webUrl = json.value(QLatin1String("webUrl")).toString();
     // Empty: the current account
     root.accountId = json.value(QLatin1String("accountId")).toString();
+    // PC folder backup; only the three folders it knows
+    const QString backup = json.value(QLatin1String("backup")).toString();
+    if (backup == QLatin1String("desktop") || backup == QLatin1String("documents") || backup == QLatin1String("pictures")) {
+        root.backup = backup;
+    }
     const QJsonArray excluded = json.value(QLatin1String("excludedPaths")).toArray();
     for (const QJsonValue &path : excluded) {
         root.excludedPaths.append(path.toString());
@@ -129,6 +134,15 @@ void DBusService::Quit()
     QTimer::singleShot(0, QCoreApplication::instance(), &QCoreApplication::quit);
 }
 
+QByteArray DBusService::Thumbnail(const QString &path, int size, const QDBusMessage &message)
+{
+    message.setDelayedReply(true);
+    if (!m_daemon->thumbnail(path, size, message)) {
+        QDBusConnection::sessionBus().send(message.createReply(QVariant::fromValue(QByteArray())));
+    }
+    return {};
+}
+
 QString DBusService::Command(const QString &json)
 {
     const QJsonObject request = QJsonDocument::fromJson(json.toUtf8()).object();
@@ -173,7 +187,9 @@ QString DBusService::Command(const QString &json)
         for (const QJsonValue &value : list) {
             paths.append(value.toString());
         }
-        m_daemon->pin(paths, request.value(QLatin1String("state")).toString());
+        return toJson({{QStringLiteral("ok"), m_daemon->pin(paths, request.value(QLatin1String("state")).toString())}});
+    } else if (command == QLatin1String("sharingChanged")) {
+        m_daemon->sharingChanged(request.value(QLatin1String("path")).toString());
     } else if (command == QLatin1String("recheck")) {
         // Settings > Advanced > Check All Files Again
         for (RootController *controller : m_daemon->controllers()) {
@@ -209,6 +225,8 @@ QString DBusService::Command(const QString &json)
     } else if (command == QLatin1String("linkCopied")) {
         // From the app's --copy-link run: hold the link and say what it allows
         const bool copied = m_daemon->copyToClipboard(request.value(QLatin1String("url")).toString());
+        // The link was made either way
+        m_daemon->sharingChanged(request.value(QLatin1String("path")).toString());
         if (copied) {
             m_daemon->notifyLinkCopied(request.value(QLatin1String("path")).toString(),
                                        request.value(QLatin1String("name")).toString(),

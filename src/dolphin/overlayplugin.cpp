@@ -3,6 +3,8 @@
 
 #include "overlayplugin.h"
 
+#include <algorithm>
+
 #include <QDir>
 #include <QLocalSocket>
 #include <QStandardPaths>
@@ -13,11 +15,17 @@ namespace
 {
 constexpr int reconnectMs = 5000;
 constexpr int maxEarlyPaths = 2000;
+// The daemon sends one REGISTER_PATH per location right after connecting, possibly over several
+// reads: paths asked before then wait this long for theirs
+constexpr int earlyGraceMs = 5000;
+// Dolphin never says when it stops showing an item: the least recently asked go beyond this
+constexpr qsizetype maxCachedPaths = 20000;
 
 const QString emblemSynced = QStringLiteral("emblem-success");
 const QString emblemSyncing = QStringLiteral("io.github.nvaert1986.graphsync-emblem-syncing");
 const QString emblemError = QStringLiteral("emblem-error");
 const QString emblemCloud = QStringLiteral("io.github.nvaert1986.graphsync-emblem-cloud");
+const QString emblemShared = QStringLiteral("emblem-shared");
 
 bool isUnder(const QString &path, const QString &root)
 {
@@ -43,6 +51,13 @@ OverlayPlugin::OverlayPlugin(QObject *parent)
     m_reconnectTimer->setInterval(reconnectMs);
     connect(m_reconnectTimer, &QTimer::timeout, this, &OverlayPlugin::connectToDaemon);
 
+    m_earlyTimer = new QTimer(this);
+    m_earlyTimer->setSingleShot(true);
+    m_earlyTimer->setInterval(earlyGraceMs);
+    connect(m_earlyTimer, &QTimer::timeout, this, [this] {
+        m_early.clear();
+    });
+
     connectToDaemon();
 }
 
@@ -59,6 +74,7 @@ void OverlayPlugin::onDisconnected()
     // Stale emblems are worse than none
     m_roots.clear();
     m_rootsKnown = false;
+    m_earlyTimer->stop();
     for (auto it = m_status.begin(); it != m_status.end(); ++it) {
         if (!it->isEmpty()) {
             it->clear();
@@ -82,6 +98,10 @@ QStringList OverlayPlugin::getOverlays(const QUrl &url)
     }
     // Always ask again: Dolphin calls this when it (re)loads an item, so the cache may be old
     request(path);
+    m_lastAsked.insert(path, ++m_askCounter);
+    if (m_status.size() > maxCachedPaths) {
+        forgetOldest();
+    }
     return overlaysFor(m_status.value(path));
 }
 
@@ -93,6 +113,23 @@ bool OverlayPlugin::isUnderRoot(const QString &path) const
         }
     }
     return false;
+}
+
+void OverlayPlugin::forgetOldest()
+{
+    // The older half goes; what Dolphin shows now was asked for just now and stays
+    QList<quint64> order = m_lastAsked.values();
+    const auto middle = order.begin() + order.size() / 2;
+    std::nth_element(order.begin(), middle, order.end());
+    const quint64 cutoff = *middle;
+    for (auto it = m_status.begin(); it != m_status.end();) {
+        if (m_lastAsked.value(it.key()) < cutoff) {
+            m_lastAsked.remove(it.key());
+            it = m_status.erase(it);
+        } else {
+            ++it;
+        }
+    }
 }
 
 void OverlayPlugin::request(const QString &path)
@@ -113,9 +150,6 @@ void OverlayPlugin::onReadyRead()
             handleLine(line);
         }
     }
-    if (m_rootsKnown) {
-        m_early.clear();
-    }
 }
 
 void OverlayPlugin::handleLine(const QString &line)
@@ -135,13 +169,23 @@ void OverlayPlugin::handleLine(const QString &line)
         }
     } else if (command == QLatin1String("REGISTER_PATH")) {
         m_roots.insert(argument);
-        m_rootsKnown = true;
+        if (!m_rootsKnown) {
+            m_rootsKnown = true;
+            m_earlyTimer->start();
+        }
         // Dolphin may have asked before we knew this root (plugin just loaded, daemon restarted)
-        QStringList paths = m_status.keys();
-        paths += QStringList(m_early.cbegin(), m_early.cend());
-        for (const QString &path : std::as_const(paths)) {
+        const QStringList paths = m_status.keys();
+        for (const QString &path : paths) {
             if (isUnder(path, argument)) {
                 request(path);
+            }
+        }
+        for (auto it = m_early.begin(); it != m_early.end();) {
+            if (isUnder(*it, argument)) {
+                request(*it);
+                it = m_early.erase(it);
+            } else {
+                ++it;
             }
         }
     } else if (command == QLatin1String("UNREGISTER_PATH")) {
@@ -151,6 +195,7 @@ void OverlayPlugin::handleLine(const QString &line)
                 if (!it->isEmpty()) {
                     Q_EMIT overlaysChanged(QUrl::fromLocalFile(it.key()), {});
                 }
+                m_lastAsked.remove(it.key());
                 it = m_status.erase(it);
             } else {
                 ++it;
@@ -195,6 +240,10 @@ QStringList OverlayPlugin::overlaysFor(const QString &status)
     }
     if (status.endsWith(QLatin1String("+ROOT"))) {
         overlays << emblemCloud;
+    }
+    // Shared with others (the item or a folder above it), like the OneDrive website's "Shared"
+    if (status.endsWith(QLatin1String("+SHARED"))) {
+        overlays << emblemShared;
     }
     return overlays;
 }

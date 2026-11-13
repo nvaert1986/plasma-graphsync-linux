@@ -89,7 +89,7 @@ void onKeychainThread(const std::function<void()> &work)
 
 // A QtKeychain job to completion, in a local event loop on the keychain thread
 template<typename Job>
-bool runKeychainJob(Job *job, QString *error)
+bool runKeychainJob(Job *job, QString *error, QKeychain::Error *code = nullptr)
 {
     QEventLoop loop;
     QObject::connect(job, &QKeychain::Job::finished, &loop, &QEventLoop::quit);
@@ -100,18 +100,21 @@ bool runKeychainJob(Job *job, QString *error)
     if (!ok && error) {
         *error = job->errorString();
     }
+    if (code) {
+        *code = job->error();
+    }
     return ok;
 }
 
 // The three operations, each job made, run and gone on the keychain thread
-bool keychainRead(const QString &service, const QString &key, QString *data, QString *error)
+bool keychainRead(const QString &service, const QString &key, QString *data, QString *error, QKeychain::Error *code = nullptr)
 {
     bool ok = false;
     QString failure;
     onKeychainThread([&] {
         QKeychain::ReadPasswordJob job(service);
         job.setKey(key);
-        ok = runKeychainJob(&job, &failure);
+        ok = runKeychainJob(&job, &failure, code);
         if (ok) {
             *data = job.textData();
         }
@@ -756,8 +759,16 @@ QString Auth::readRefreshToken(QString *error)
         return {};
     }
     QString token;
-    if (keychainRead(keychainService, keychainKey(), &token, error)) {
+    QKeychain::Error code = QKeychain::NoError;
+    if (keychainRead(keychainService, keychainKey(), &token, error, &code)) {
+        m_keychainUnavailable = false;
         return token;
+    }
+    // Not "no such entry" but no answer at all (the wallet not open yet at login, access refused):
+    // the sign-in is unknown, not gone
+    m_keychainUnavailable = code != QKeychain::EntryNotFound;
+    if (m_keychainUnavailable) {
+        return {};
     }
     // Stored before 0.8.0 under the registration's key: move it to the account's own entry. Only
     // for the user it belongs to: another user of the same tenant and registration must not get it

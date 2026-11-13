@@ -1,3 +1,38 @@
+plasma-graphsync-linux (0.9.4-1) unstable; urgency=medium
+
+  * Removed shortcuts upload their last changes before their folder goes to
+    the Trash; a sync cycle no longer hangs while Microsoft's push service
+    is down. More in CHANGELOG.md.
+
+ -- nvaert1986 <25772781+nvaert1986@users.noreply.github.com>  Fri, 13 Nov 2026 12:40:53 +0100
+
+plasma-graphsync-linux (0.9.3-1) unstable; urgency=medium
+
+  * A large upload cut off by a crash is resumed instead of ending up as a
+    conflict copy. More in CHANGELOG.md.
+
+ -- nvaert1986 <25772781+nvaert1986@users.noreply.github.com>  Thu, 12 Nov 2026 14:51:03 +0100
+
+plasma-graphsync-linux (0.9.2-1) unstable; urgency=high
+
+  * Fixes from a full review of the sync engine (files lost or deleted by
+    mistake in rare cases). More in CHANGELOG.md.
+
+ -- nvaert1986 <25772781+nvaert1986@users.noreply.github.com>  Thu, 12 Nov 2026 14:21:14 +0100
+
+plasma-graphsync-linux (0.9.1-1) unstable; urgency=medium
+
+  * Fixes from a code and security review of 0.9.0. More in CHANGELOG.md.
+
+ -- nvaert1986 <25772781+nvaert1986@users.noreply.github.com>  Thu, 12 Nov 2026 13:04:09 +0100
+
+plasma-graphsync-linux (0.9.0-1) unstable; urgency=medium
+
+  * PC folder backup, "Shared" emblem, previews of online-only files,
+    automatic free up space. More in CHANGELOG.md.
+
+ -- nvaert1986 <25772781+nvaert1986@users.noreply.github.com>  Thu, 12 Nov 2026 11:46:03 +0100
+
 plasma-graphsync-linux (0.8.5-1) unstable; urgency=high
 
   * Files On-Demand: files that became online-only were deleted online

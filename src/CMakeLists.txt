@@ -23,6 +23,9 @@ target_sources(graphsynccore PRIVATE
     core/ratelimiter.cpp
     core/statedb.cpp
     core/syncengine.cpp
+    core/autofreeup.cpp
+    core/folderbackup.cpp
+    core/dolphinpreviews.cpp
 )
 
 ecm_qt_declare_logging_category(graphsynccore
@@ -35,6 +38,9 @@ ecm_qt_declare_logging_category(graphsynccore
 )
 
 target_compile_definitions(graphsynccore PRIVATE TRANSLATION_DOMAIN="plasma-graphsync-linux")
+# Test hooks (GRAPHSYNC_TEST_* variables) exist in this project's Debug builds only; packages use
+# other build types (None, Release, RelWithDebInfo), with or without NDEBUG
+target_compile_definitions(graphsynccore PRIVATE $<$<CONFIG:Debug>:GRAPHSYNC_TESTING>)
 target_include_directories(graphsynccore PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/core ${CMAKE_CURRENT_BINARY_DIR})
 
 target_link_libraries(graphsynccore PUBLIC
@@ -53,7 +59,7 @@ add_executable(graphsyncctl graphsyncctl/main.cpp)
 target_link_libraries(graphsyncctl PRIVATE graphsynccore Qt6::DBus)
 target_compile_definitions(graphsyncctl PRIVATE TRANSLATION_DOMAIN="plasma-graphsync-linux")
 
-add_executable(graphsyncd graphsyncd/main.cpp graphsyncd/daemon.cpp graphsyncd/rootcontroller.cpp graphsyncd/dbusservice.cpp graphsyncd/socketserver.cpp graphsyncd/places.cpp)
+add_executable(graphsyncd graphsyncd/main.cpp graphsyncd/daemon.cpp graphsyncd/rootcontroller.cpp graphsyncd/dbusservice.cpp graphsyncd/socketserver.cpp graphsyncd/places.cpp graphsyncd/thumbnailservice.cpp)
 target_link_libraries(graphsyncd PRIVATE graphsynccore Qt6::DBus Qt6::Gui KF6::Bookmarks KF6::GuiAddons KF6::Notifications)
 target_compile_definitions(graphsyncd PRIVATE TRANSLATION_DOMAIN="plasma-graphsync-linux")
 
@@ -90,6 +96,7 @@ target_link_libraries(plasma-graphsync-linux PRIVATE
     KF6::I18n
     KF6::I18nQml
     KF6::DBusAddons
+    KF6::KIOGui
     KF6::WindowSystem
 )
 
@@ -97,3 +104,4 @@ install(TARGETS graphsyncctl graphsyncd plasma-graphsync-linux ${KDE_INSTALL_TAR
 
 add_subdirectory(kcm)
 add_subdirectory(dolphin)
+add_subdirectory(thumbnailer)

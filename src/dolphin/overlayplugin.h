@@ -39,7 +39,13 @@ private:
     QSet<QString> m_roots;
     // Paths Dolphin asked about -> last STATUS (empty while unanswered)
     QHash<QString, QString> m_status;
-    // Asked before the daemon told us its roots; answered once REGISTER_PATH arrives
+    // When each path was last asked for (a counter), to forget the oldest
+    QHash<QString, quint64> m_lastAsked;
+    quint64 m_askCounter = 0;
+    void forgetOldest();
+    // Asked before the daemon told us its roots; answered once its REGISTER_PATH arrives, dropped
+    // a few seconds after the first one (m_earlyTimer)
     QSet<QString> m_early;
+    QTimer *m_earlyTimer = nullptr;
     bool m_rootsKnown = false;
 };

@@ -5,19 +5,22 @@
 #include "config.h"
 #include "graphsync_debug.h"
 
+#include <QDateTime>
 #include <QDir>
 #include <QFile>
 #include <QSqlError>
 #include <QSqlQuery>
 #include <QThread>
 
+#include <sys/stat.h>
+
 namespace GraphSync
 {
 
 namespace
 {
-// 2: items.dehydrated and the pins table (Files On-Demand)
-constexpr int schemaVersion = 2;
+// 2: items.dehydrated and the pins table (Files On-Demand); 3: items.shared; 4: the opened table
+constexpr int schemaVersion = 4;
 
 void exec(QSqlQuery &query)
 {
@@ -46,6 +49,11 @@ StateDb::~StateDb()
 
 bool StateDb::open(QString *error)
 {
+    // A log without its database is a leftover of an earlier location with this id: never replayed
+    if (!QFile::exists(m_path)) {
+        QFile::remove(m_path + QStringLiteral("-wal"));
+        QFile::remove(m_path + QStringLiteral("-shm"));
+    }
     QSqlDatabase db = QSqlDatabase::addDatabase(QStringLiteral("QSQLITE"), m_connectionName);
     db.setDatabaseName(m_path);
     if (!db.open()) {
@@ -69,6 +77,12 @@ bool StateDb::open(QString *error)
     q.exec(QStringLiteral("CREATE TABLE IF NOT EXISTS pins (rel TEXT PRIMARY KEY, state INTEGER NOT NULL)"));
     // Upgrade from schema 1; a column that already exists makes this fail harmlessly
     q.exec(QStringLiteral("ALTER TABLE items ADD COLUMN dehydrated INTEGER NOT NULL DEFAULT 0"));
+    q.exec(QStringLiteral("ALTER TABLE items ADD COLUMN shared INTEGER NOT NULL DEFAULT 0"));
+    q.exec(QStringLiteral("CREATE TABLE IF NOT EXISTS opened (rel TEXT PRIMARY KEY, at INTEGER NOT NULL)"));
+    // Opens are known from here on; before it, a file counts as used now
+    if (meta(QStringLiteral("openedSince")).isEmpty()) {
+        setMeta(QStringLiteral("openedSince"), QString::number(QDateTime::currentSecsSinceEpoch()));
+    }
     if (meta(QStringLiteral("schema")).toInt() < schemaVersion) {
         setMeta(QStringLiteral("schema"), QString::number(schemaVersion));
     }
@@ -99,7 +113,7 @@ QHash<QString, ItemRow> StateDb::loadItems() const
     QSqlQuery q(QSqlDatabase::database(m_connectionName));
     q.setForwardOnly(true);
     q.prepare(QStringLiteral(
-        "SELECT id, parent_id, name, is_folder, r_etag, r_ctag, r_hash, r_size, l_hash, l_size, l_mtime_ns, l_inode, dehydrated FROM items"));
+        "SELECT id, parent_id, name, is_folder, r_etag, r_ctag, r_hash, r_size, l_hash, l_size, l_mtime_ns, l_inode, dehydrated, shared FROM items"));
     exec(q);
     while (q.next()) {
         ItemRow row;
@@ -116,6 +130,7 @@ QHash<QString, ItemRow> StateDb::loadItems() const
         row.localMtimeNs = q.value(10).toLongLong();
         row.localInode = q.value(11).toULongLong();
         row.dehydrated = q.value(12).toBool();
+        row.shared = q.value(13).toBool();
         items.insert(row.id, row);
     }
     return items;
@@ -125,8 +140,8 @@ void StateDb::upsert(const ItemRow &row)
 {
     QSqlQuery q(QSqlDatabase::database(m_connectionName));
     q.prepare(QStringLiteral(
-        "INSERT OR REPLACE INTO items (id, parent_id, name, is_folder, r_etag, r_ctag, r_hash, r_size, l_hash, l_size, l_mtime_ns, l_inode, dehydrated)"
-        " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"));
+        "INSERT OR REPLACE INTO items (id, parent_id, name, is_folder, r_etag, r_ctag, r_hash, r_size, l_hash, l_size, l_mtime_ns, l_inode, dehydrated, shared)"
+        " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"));
     q.addBindValue(row.id);
     q.addBindValue(row.parentId);
     q.addBindValue(row.name);
@@ -140,6 +155,7 @@ void StateDb::upsert(const ItemRow &row)
     q.addBindValue(row.localMtimeNs);
     q.addBindValue(static_cast<qint64>(row.localInode));
     q.addBindValue(row.dehydrated);
+    q.addBindValue(row.shared);
     exec(q);
 }
 
@@ -220,6 +236,46 @@ void StateDb::removePins(const QStringList &rels)
     }
 }
 
+QHash<QString, qint64> StateDb::loadOpened() const
+{
+    QHash<QString, qint64> opened;
+    QSqlQuery q(QSqlDatabase::database(m_connectionName));
+    q.setForwardOnly(true);
+    q.prepare(QStringLiteral("SELECT rel, at FROM opened"));
+    exec(q);
+    while (q.next()) {
+        opened.insert(q.value(0).toString(), q.value(1).toLongLong());
+    }
+    return opened;
+}
+
+void StateDb::noteOpened(const QHash<QString, qint64> &opened)
+{
+    QSqlQuery q(QSqlDatabase::database(m_connectionName));
+    q.prepare(QStringLiteral("INSERT INTO opened (rel, at) VALUES (?, ?) ON CONFLICT(rel) DO UPDATE SET at = max(at, excluded.at)"));
+    for (auto it = opened.constBegin(); it != opened.constEnd(); ++it) {
+        q.addBindValue(it.key());
+        q.addBindValue(it.value());
+        exec(q);
+    }
+}
+
+void StateDb::removeOpened(const QStringList &rels)
+{
+    QSqlQuery q(QSqlDatabase::database(m_connectionName));
+    q.prepare(QStringLiteral("DELETE FROM opened WHERE rel = ?"));
+    for (const QString &rel : rels) {
+        q.addBindValue(rel);
+        exec(q);
+    }
+}
+
+void StateDb::clearOpened()
+{
+    QSqlQuery q(QSqlDatabase::database(m_connectionName));
+    q.exec(QStringLiteral("DELETE FROM opened"));
+}
+
 void StateDb::remove(const QString &id)
 {
     QSqlQuery q(QSqlDatabase::database(m_connectionName));
@@ -232,6 +288,36 @@ void StateDb::clearItems()
 {
     QSqlQuery q(QSqlDatabase::database(m_connectionName));
     q.exec(QStringLiteral("DELETE FROM items"));
+}
+
+bool StateDb::localMatches(const QString &rootId, const QString &itemId, const QString &path)
+{
+    const QString file = QDir(Config::stateDirectory()).filePath(rootId + QStringLiteral(".sqlite3"));
+    if (!QFile::exists(file)) {
+        return false;
+    }
+    const QString name = QStringLiteral("graphsync-check-%1").arg(reinterpret_cast<quintptr>(QThread::currentThread()), 0, 16);
+    bool matches = false;
+    {
+        QSqlDatabase db = QSqlDatabase::addDatabase(QStringLiteral("QSQLITE"), name);
+        db.setDatabaseName(file);
+        db.setConnectOptions(QStringLiteral("QSQLITE_OPEN_READONLY;QSQLITE_BUSY_TIMEOUT=2000"));
+        if (db.open()) {
+            QSqlQuery q(db);
+            q.prepare(QStringLiteral("SELECT l_inode, dehydrated FROM items WHERE id = ?"));
+            q.addBindValue(itemId);
+            if (q.exec() && q.next()) {
+                const quint64 inode = q.value(0).toULongLong();
+                const bool dehydrated = q.value(1).toBool();
+                struct stat info;
+                const QByteArray local = QFile::encodeName(dehydrated ? path + QStringLiteral(".cloud") : path);
+                matches = inode != 0 && ::lstat(local.constData(), &info) == 0 && quint64(info.st_ino) == inode;
+            }
+            db.close();
+        }
+    }
+    QSqlDatabase::removeDatabase(name);
+    return matches;
 }
 
 void StateDb::begin()

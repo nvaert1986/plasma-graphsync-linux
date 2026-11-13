@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <QDateTime>
 #include <QHash>
 #include <QSet>
 #include <QString>
@@ -29,6 +30,8 @@ QHash<QString, LocalEntry> scan(const QString &root);
 QHash<QString, LocalEntry> scan(const QString &root, const QSet<QString> &skip);
 
 std::optional<LocalEntry> stat(const QString &absolutePath);
+// Sets the modification time (the access time stays); false when time is invalid or it failed
+bool setModified(const QString &absolutePath, const QDateTime &time);
 }
 
 }
