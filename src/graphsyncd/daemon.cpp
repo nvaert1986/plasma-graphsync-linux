@@ -147,7 +147,6 @@ void Daemon::reloadAccount()
     // No current account (signed out with graphsyncctl) or a signed-out one: another signed-in
     // account takes over
     chooseCurrentAccount();
-    m_signedOutNotified.clear();
     if (!m_signedIn) {
         qCInfo(GRAPHSYNC) << "Not signed in; waiting for the setup wizard";
     }
@@ -163,7 +162,6 @@ void Daemon::reloadOneAccount(const QString &accountId)
     invalidateStatusCache();
     const std::shared_ptr<Auth> auth = authFor(accountId);
     m_accountSignedIn.insert(accountId, auth && auth->isConfigured() && auth->hasStoredRefreshToken());
-    m_signedOutNotified.remove(accountId);
     chooseCurrentAccount();
     startRoots();
     Q_EMIT rootsChanged();
@@ -347,7 +345,8 @@ RootController *Daemon::createController(const RootConfig &root, std::shared_ptr
         if (accountId == Config::account().id) {
             m_signedIn = false;
         }
-        notifySignedOut(accountId);
+        // The suite's account service shows the one "Sign in again" notification for every app
+        qCInfo(GRAPHSYNC).noquote() << "Account" << accountId << "needs a sign-in: its locations wait";
         Q_EMIT statusChanged();
     });
     connect(controller, &RootController::hydrated, this, [this, controller](const QString &rel, bool ok, const QString &error) {
@@ -1053,27 +1052,6 @@ void Daemon::notifyBigDelete(const QString &rootId, const QString &rootName, int
     KNotificationAction *restore = notification->addAction(i18n("Restore Files"));
     connect(restore, &KNotificationAction::activated, this, [this, rootId] {
         resolveBigDelete(rootId, QStringLiteral("restore"));
-    });
-    notification->sendEvent();
-}
-
-void Daemon::notifySignedOut(const QString &accountId)
-{
-    if (m_signedOutNotified.contains(accountId) || !notificationsAvailable()) {
-        return;
-    }
-    m_signedOutNotified.insert(accountId);
-    const AccountInfo account = GraphCore::Accounts::find(accountId);
-    auto *notification = new KNotification(QStringLiteral("signedOut"), KNotification::Persistent);
-    notification->setComponentName(componentName);
-    notification->setTitle(i18n("Sign in again"));
-    setPlainText(notification, account.userPrincipalName.isEmpty() ? i18n("Your session expired, so files are not syncing.")
-                                                              : i18n("The session of %1 expired, so its files are not syncing.", account.userPrincipalName));
-    KNotificationAction *signIn = notification->addAction(i18n("Sign In"));
-    connect(signIn, &KNotificationAction::activated, this, [this, accountId] {
-        // The app signs in the account it works with: make it this one
-        setCurrentAccount(accountId);
-        launchApp({QStringLiteral("--sign-in")});
     });
     notification->sendEvent();
 }

@@ -12,6 +12,8 @@ development phase; the third number counts fixes.
 - Errors say what happened and what to do, in the same words as the suite's other apps (for
   example "You do not have permission for this. (HTTP 403 accessDenied)" instead of only the code).
 - The network state (metered connection, back online) comes from the suite's core.
+- An expired sign-in is announced once for the whole suite by the account service ("Sign in again",
+  with a Sign In button); Graph Sync's own notification for it is gone.
 
 ## 0.13.0 (2026-11-17)
 

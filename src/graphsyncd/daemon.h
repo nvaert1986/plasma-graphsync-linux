@@ -145,7 +145,6 @@ private:
     void notifyConflict(const QString &path, const QString &copyName);
     void notifyError(const QString &root, const QString &message);
     void notifyBigDelete(const QString &rootId, const QString &rootName, int missing, int known);
-    void notifySignedOut(const QString &accountId);
     void notifyUpdate(const QString &version, const QUrl &page);
     static void launchApp(const QStringList &arguments);
     // The sign-in of an account (created on first use); null for an unknown account. Shared with
@@ -184,7 +183,6 @@ private:
     // Errors already notified, with the time, so a recurring error is shown once an hour
     QHash<QString, QDateTime> m_notifiedErrors;
     // Accounts already told to sign in again
-    QSet<QString> m_signedOutNotified;
 
     // New releases: the version to tell about (empty: none, skipped, or the check is off)
     UpdateChecker m_updates;

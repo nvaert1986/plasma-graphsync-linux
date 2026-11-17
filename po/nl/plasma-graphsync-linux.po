@@ -4,7 +4,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: plasma-graphsync-linux\n"
-"PO-Revision-Date: 2026-11-17 12:05+0100\n"
+"PO-Revision-Date: 2026-11-17 13:35+0100\n"
 "Last-Translator: plasma-graphsync-linux contributors\n"
 "Language-Team: Dutch\n"
 "Language: nl\n"
@@ -18,9 +18,6 @@ msgstr "Kan Microsoft 365 niet bereiken. Controleer de netwerkverbinding."
 
 msgid "This item is not online yet. Wait until it has synced and try again."
 msgstr "Dit item staat nog niet online. Wacht tot het is gesynchroniseerd en probeer het opnieuw."
-
-msgid "Your organisation does not allow this here. (%1)"
-msgstr "Je organisatie staat dit hier niet toe. (%1)"
 
 msgid "%1 is not in a synced folder."
 msgstr "%1 staat niet in een gesynchroniseerde map."
@@ -416,23 +413,14 @@ msgstr "Ook online verwijderen"
 msgid "Restore Files"
 msgstr "Bestanden terugzetten"
 
-msgid "Sign in again"
-msgstr "Opnieuw aanmelden"
-
-msgid "Your session expired, so files are not syncing."
-msgstr "Je sessie is verlopen, daarom worden bestanden niet gesynchroniseerd."
-
-msgid "The session of %1 expired, so its files are not syncing."
-msgstr "De sessie van %1 is verlopen, daarom worden de bestanden ervan niet gesynchroniseerd."
-
-msgid "Sign In"
-msgstr "Aanmelden"
-
 msgid "Run the setup wizard"
 msgstr "De installatie-assistent starten"
 
 msgid "Add a library"
 msgstr "Een bibliotheek toevoegen"
+
+msgid "Sign in again"
+msgstr "Opnieuw aanmelden"
 
 msgid "Sign in to another account"
 msgstr "Aanmelden bij een ander account"
@@ -668,6 +656,9 @@ msgstr "SharePoint-bibliotheek toevoegen"
 
 msgid "Syncing has started."
 msgstr "Het synchroniseren is begonnen."
+
+msgid "Sign In"
+msgstr "Aanmelden"
 
 msgid "%1 library selected"
 msgid_plural "%1 libraries selected"

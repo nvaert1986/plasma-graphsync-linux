@@ -25,11 +25,6 @@ Comment=Many synced files disappeared from this computer
 Action=Popup
 Urgency=Critical
 
-[Event/signedOut]
-Name=Signed out
-Comment=The session expired and syncing stopped
-Action=Popup
-
 [Event/linkCopied]
 Name=Link copied
 Comment=A sharing link was put on the clipboard
