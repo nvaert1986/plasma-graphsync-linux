@@ -6,7 +6,7 @@
 A native KDE Plasma 6 sync client for OneDrive for Business and SharePoint document
 libraries, written in C++ with Qt 6 and KDE Frameworks 6.
 
-**Status:** version 0.14.0 in development (0.13.0 is the current release), phases 0 to 10 done (the version number follows the last finished
+**Status:** version 0.14.0, phases 0 to 10 done (the version number follows the last finished
 phase; since 0.11.0 the suite's apps share one version series). Since 0.11.0 the sign-in comes from the
 suite's shared account service, [plasma-graphcore-linux](https://github.com/nvaert1986/plasma-graphcore-linux).
 
