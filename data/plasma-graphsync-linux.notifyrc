@@ -44,4 +44,5 @@ Action=Popup
 [Event/updateAvailable]
 Name=New version
 Comment=A newer version of Graph Sync is available
+IconName=system-software-update
 Action=Popup
