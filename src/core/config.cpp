@@ -128,15 +128,6 @@ AccountInfo registerAccount(const AccountInfo &signedIn, bool legacyOwner)
     return stored;
 }
 
-void setAccountOrganization(const QString &id, const QString &organization)
-{
-    AccountInfo account = GraphCore::Accounts::find(id);
-    if (account.isValid() && account.organization != organization) {
-        account.organization = organization;
-        GraphCore::Accounts::add(account);
-    }
-}
-
 QString accountUserKey(const AccountInfo &account)
 {
     return account.tenantId.toLower() + QLatin1Char(':') + account.objectId.toLower();

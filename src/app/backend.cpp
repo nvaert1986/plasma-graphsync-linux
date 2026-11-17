@@ -90,10 +90,6 @@ Backend::Backend(Use use, QObject *parent)
         if (Migration::pending()) {
             startImport();
         }
-        // Signed in by graphsyncctl or an older version: the organisation name is still missing
-        if (signedIn() && Config::account().organization.isEmpty()) {
-            fetchOrganization();
-        }
     }
 
     auto *watcher = new QDBusServiceWatcher(service, QDBusConnection::sessionBus(), QDBusServiceWatcher::WatchForOwnerChange, this);
@@ -1064,18 +1060,11 @@ QString Backend::addPersonalFor(const QString &accountId)
         setError(drive.userMessage());
         return {};
     }
-    // Its own organisation, never the current account's: fetched now when not known yet, else the
-    // domain of its address, so the folder never takes another organisation's name
+    // Its own organisation, never the current account's: the name the account service stored, else
+    // the domain of its address, so the folder never takes another organisation's name
     AccountInfo named = account;
     if (named.organization.isEmpty()) {
-        setBusy(true);
-        const GraphResponse organization = graph->get(QStringLiteral("/organization?$select=displayName"));
-        setBusy(false);
-        const QJsonArray values = organization.json().value(QLatin1String("value")).toArray();
-        named.organization = values.isEmpty() ? QString() : values.first().toObject().value(QLatin1String("displayName")).toString();
-        if (named.organization.isEmpty()) {
-            named.organization = account.userPrincipalName.section(QLatin1Char('@'), 1);
-        }
+        named.organization = account.userPrincipalName.section(QLatin1Char('@'), 1);
     }
     const QString label = Config::organizationLabel(named);
     return addRoot({{QStringLiteral("name"), i18nc("name of the personal OneDrive, %1 is the organization", "OneDrive - %1", named.organization)},
@@ -1088,10 +1077,7 @@ QString Backend::addPersonalFor(const QString &accountId)
 
 QString Backend::addPersonal()
 {
-    // The folder is named after the organisation
-    if (Config::account().organization.isEmpty()) {
-        fetchOrganization();
-    }
+    // The folder is named after the organisation (the account service stores its name)
     const QVariantMap drive = personalDrive();
     if (drive.value(QStringLiteral("id")).toString().isEmpty()) {
         return {};
@@ -1145,7 +1131,9 @@ QString Backend::userPrincipalName() const
 
 QString Backend::organization() const
 {
-    const QString org = Config::account().organization;
+    // The name the account service stored, else the domain of the address
+    const AccountInfo account = Config::account();
+    const QString org = account.organization.isEmpty() ? account.userPrincipalName.section(QLatin1Char('@'), 1) : account.organization;
     return org.isEmpty() ? i18n("Organization") : org;
 }
 
@@ -1434,7 +1422,6 @@ bool Backend::finishSignIn()
     // The account that signed in may have been used through an older sign-in
     resetAccountClients();
     setError({});
-    fetchOrganization();
     // Let a running graphsyncd pick up the new refresh token: only this account's locations
     // restart, the other accounts' transfers go on
     std::unique_ptr<QDBusInterface> iface(daemon(nullptr));
@@ -1472,16 +1459,6 @@ bool Backend::signInWithCode()
 void Backend::cancelSignIn()
 {
     m_cancelSignIn = true;
-}
-
-void Backend::fetchOrganization()
-{
-    const GraphResponse response = get(QStringLiteral("/organization?$select=displayName"));
-    const QJsonArray values = response.json().value(QLatin1String("value")).toArray();
-    if (values.isEmpty()) {
-        return;
-    }
-    Config::setAccountOrganization(Config::account().id, values.at(0).toObject().value(QLatin1String("displayName")).toString());
 }
 
 QVariantList Backend::siteList(const QString &path)

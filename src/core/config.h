@@ -93,8 +93,6 @@ void setCurrentAccountId(const QString &id);
 // legacyOwner: the account is the one of the 0.7 setup itself (the migration), which claims all of
 // its locations; a sign-in only claims them for the same tenant
 AccountInfo registerAccount(const AccountInfo &signedIn, bool legacyOwner = false);
-// Organisation name from Graph, kept with the account
-void setAccountOrganization(const QString &id, const QString &organization);
 // The sign-in settings of an account: its app registration, tenant and user
 AuthConfig authFor(const AccountInfo &account);
 // The current account's sign-in settings, or auth() for a new sign-in when there is none

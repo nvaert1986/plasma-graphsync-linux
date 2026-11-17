@@ -280,11 +280,7 @@ int main(int argc, char **argv)
             }
             return fail(error);
         }
-        GraphClient graph(&added);
-        const QJsonArray orgs = graph.get(QStringLiteral("/organization?$select=displayName")).json().value(QLatin1String("value")).toArray();
-        if (!orgs.isEmpty()) {
-            Config::setAccountOrganization(Config::account().id, orgs.at(0).toObject().value(QLatin1String("displayName")).toString());
-        }
+        // The organisation's name: stored by the account service at the sign-in
         const AccountInfo account = Config::account();
         // Only this account's locations restart in the running daemon
         QDBusInterface(DBusNames::service(), DBusNames::path(), DBusNames::interfaceName())
@@ -366,11 +362,7 @@ int main(int argc, char **argv)
                 return fail(error);
             }
         }
-        GraphClient graph(&auth);
-        const QJsonArray orgs = graph.get(QStringLiteral("/organization?$select=displayName")).json().value(QLatin1String("value")).toArray();
-        if (!orgs.isEmpty()) {
-            Config::setAccountOrganization(Config::account().id, orgs.at(0).toObject().value(QLatin1String("displayName")).toString());
-        }
+        // The organisation's name: stored by the account service at the sign-in
         const AccountInfo account = Config::account();
         out() << "Signed in as " << account.displayName << " <" << account.userPrincipalName << "> (" << account.organization << ")" << Qt::endl;
         // A running daemon starts this account's locations

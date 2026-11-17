@@ -309,7 +309,6 @@ private:
     // account it may have changed
     void accountCommand(const QString &name, const QString &id);
     void setBusy(bool busy);
-    void fetchOrganization();
     QVariantList siteList(const QString &path);
     static QString safeName(const QString &name);
     // Resolved once per path and window; sets lastError when it fails
