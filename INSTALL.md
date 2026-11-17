@@ -25,6 +25,10 @@ in [packaging/](packaging/).
   is the same
 - A secret store for the sign-in token: KWallet (or another Secret Service provider)
 - An Entra ID app registration in your Microsoft 365 tenant (section 2)
+- plasma-graphcore-linux, built and installed first: the shared Microsoft Graph library and the
+  account service (`graphaccountsd`) of the suite. It does the sign-in for every app of the suite,
+  so signing in once is enough for Graph Sync and Graph Mail. Its build needs Qt NetworkAuth and
+  QtKeychain, which the lists below already contain
 
 Build dependencies per distribution:
 

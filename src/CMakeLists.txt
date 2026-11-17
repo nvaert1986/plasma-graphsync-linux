@@ -6,7 +6,6 @@ add_library(graphsynccore STATIC)
 set_target_properties(graphsynccore PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 target_sources(graphsynccore PRIVATE
-    core/accounts.cpp
     core/auth.cpp
     core/config.cpp
     core/driveitem.cpp
@@ -45,10 +44,12 @@ target_compile_definitions(graphsynccore PRIVATE $<$<CONFIG:Debug>:GRAPHSYNC_TES
 target_include_directories(graphsynccore PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/core ${CMAKE_CURRENT_BINARY_DIR})
 
 target_link_libraries(graphsynccore PUBLIC
+    # The suite's shared Graph core (plasma-graphcore-linux, phase 10): accounts, and the account
+    # service that owns the sign-in
+    GraphCore::GraphCore
     Qt6::Core
     Qt6::DBus
     Qt6::Network
-    Qt6::NetworkAuth
     Qt6::Sql
     Qt6::WebSockets
     KF6::ConfigCore

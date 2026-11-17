@@ -9,7 +9,6 @@ ecm_add_tests(
     authtest.cpp
     driveitemtest.cpp
     accountstest.cpp
-    authlocktest.cpp
     autofreeuptest.cpp
     folderbackuptest.cpp
     dolphinpreviewstest.cpp
