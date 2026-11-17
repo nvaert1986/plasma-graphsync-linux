@@ -3,7 +3,7 @@
 All notable changes to Graph Sync (plasma-graphsync-linux). Versions follow the last finished
 development phase; the third number counts fixes.
 
-## 0.13.0 (in development)
+## 0.13.0 (2026-11-17)
 
 **New**
 - Graph Mail, the suite's mail app, works with your synced files when both are installed: links to
