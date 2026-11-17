@@ -766,11 +766,19 @@ Item {
                             }
                         }
 
-                        QQC2.Button {
-                            visible: page.syncAccounts.length > 0
-                            icon.name: "list-add-user"
-                            text: i18n("Add Account…")
-                            onClicked: page.openRequested("addAccount", "")
+                        RowLayout {
+                            QQC2.Button {
+                                visible: page.syncAccounts.length > 0
+                                icon.name: "list-add-user"
+                                text: i18n("Add Account…")
+                                onClicked: page.openRequested("addAccount", "")
+                            }
+                            // The suite's accounts page: the same sign-in for Graph Mail and the others
+                            QQC2.Button {
+                                icon.name: "system-users"
+                                text: i18n("Microsoft 365 Accounts…")
+                                onClicked: page.api.openAccountSettings()
+                            }
                         }
 
                         // Accounts another app of the suite added (Graph Mail): one sign-in here

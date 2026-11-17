@@ -126,6 +126,8 @@ public:
 
     // Settings > Advanced > Check All Files Again
     Q_INVOKABLE void recheckAll();
+    // System Settings > Microsoft 365 Accounts: the suite's accounts for every app
+    Q_INVOKABLE void openAccountSettings();
 
     // Settings window actions, forwarded to graphsyncd
     Q_INVOKABLE void pause(int minutes);

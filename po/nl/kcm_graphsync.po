@@ -4,7 +4,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: kcm_graphsync\n"
-"PO-Revision-Date: 2026-11-17 13:35+0100\n"
+"PO-Revision-Date: 2026-11-17 13:47+0100\n"
 "Last-Translator: plasma-graphsync-linux contributors\n"
 "Language-Team: Dutch\n"
 "Language: nl\n"
@@ -375,6 +375,9 @@ msgstr "Verwijderen…"
 
 msgid "Add Account…"
 msgstr "Account toevoegen…"
+
+msgid "Microsoft 365 Accounts…"
+msgstr "Microsoft 365-accounts…"
 
 msgid "Other accounts on this computer"
 msgstr "Andere accounts op deze computer"

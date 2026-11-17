@@ -12,6 +12,8 @@
 #include "placeholder.h"
 #include "updatecheck.h"
 
+#include <graphcore/serviceclient.h>
+
 #include <KConfig>
 #include <KConfigGroup>
 #include <KIO/PreviewJob>
@@ -323,6 +325,11 @@ void Backend::skipUpdate(const QString &version)
 bool Backend::updateCheckBuiltIn() const
 {
     return UpdateCheck::compiledIn();
+}
+
+void Backend::openAccountSettings()
+{
+    GraphCore::AccountService::openSettings();
 }
 
 void Backend::recheckAll()
