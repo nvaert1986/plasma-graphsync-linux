@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "itemservice.h"
+
+#include <graphcore/people.h>
 #include "statedb.h"
 #include "auth.h"
 #include "config.h"
@@ -345,46 +347,27 @@ QVariantList ItemService::searchPeople(const QString &query, const QString &acco
     if (trimmed.size() < 2) {
         return {};
     }
-    QVariantList result;
-    auto add = [&result](const QString &name, const QString &email) {
-        if (email.isEmpty()) {
-            return;
-        }
-        for (const QVariant &existing : std::as_const(result)) {
-            if (existing.toMap().value(QStringLiteral("email")).toString().compare(email, Qt::CaseInsensitive) == 0) {
-                return;
-            }
-        }
-        result.append(QVariantMap{{QStringLiteral("name"), name}, {QStringLiteral("email"), email}});
-    };
-
-    // People the user works with (People.Read), then the directory (User.ReadBasic.All)
-    const QString search = QString::fromLatin1(QUrl::toPercentEncoding(QLatin1Char('"') + trimmed + QLatin1Char('"')));
-    GraphResponse response = graphFor(accountId)->get(QStringLiteral("/me/people?$search=%1&$top=8&$select=displayName,scoredEmailAddresses").arg(search));
-    if (response.ok()) {
-        const QJsonArray people = response.json().value(QLatin1String("value")).toArray();
-        for (const QJsonValue &value : people) {
-            const QJsonObject person = value.toObject();
-            const QJsonArray addresses = person.value(QLatin1String("scoredEmailAddresses")).toArray();
-            add(person.value(QLatin1String("displayName")).toString(), addresses.isEmpty() ? QString() : addresses.first().toObject().value(QLatin1String("address")).toString());
-        }
-    }
+    // The suite's people search (GraphCore::People): the people the user works with (People.Read),
+    // then the directory on every typed word (User.ReadBasic.All)
+    const GraphCore::People::Request relevantRequest = GraphCore::People::relevant(trimmed);
+    GraphResponse response = graphFor(accountId)->get(relevantRequest.path, relevantRequest.headers);
+    const QList<GraphCore::People::Person> relevant = response.ok() ? GraphCore::People::parseRelevant(response.json()) : QList<GraphCore::People::Person>();
     const bool peopleRefused = response.status == 401 || response.status == 403;
 
-    QString escaped = trimmed;
-    escaped.replace(QLatin1Char('\''), QStringLiteral("''"));
-    const QString filter = QString::fromLatin1(QUrl::toPercentEncoding(QStringLiteral("startswith(displayName,'%1') or startswith(mail,'%1')").arg(escaped)));
-    response = graphFor(accountId)->get(QStringLiteral("/users?$filter=%1&$top=8&$select=displayName,mail").arg(filter));
+    const GraphCore::People::Request directoryRequest = GraphCore::People::directory(trimmed);
+    response = graphFor(accountId)->get(directoryRequest.path, directoryRequest.headers);
+    QList<GraphCore::People::Person> directory;
     if (response.ok()) {
-        const QJsonArray users = response.json().value(QLatin1String("value")).toArray();
-        for (const QJsonValue &value : users) {
-            const QJsonObject user = value.toObject();
-            add(user.value(QLatin1String("displayName")).toString(), user.value(QLatin1String("mail")).toString());
-        }
+        directory = GraphCore::People::parseDirectory(response.json());
     } else if (peopleRefused && (response.status == 401 || response.status == 403)) {
         *notAllowed = true;
-    } else if (result.isEmpty() && !peopleRefused) {
+    } else if (relevant.isEmpty() && !peopleRefused) {
         *error = describe(response);
+    }
+    QVariantList result;
+    const QList<GraphCore::People::Person> people = GraphCore::People::merge(relevant, directory, 8);
+    for (const GraphCore::People::Person &person : people) {
+        result.append(QVariantMap{{QStringLiteral("name"), person.name}, {QStringLiteral("email"), person.email}});
     }
     return result;
 }

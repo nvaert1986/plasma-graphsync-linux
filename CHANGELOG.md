@@ -14,6 +14,9 @@ development phase; the third number counts fixes.
 - The network state (metered connection, back online) comes from the suite's core.
 - An expired sign-in is announced once for the whole suite by the account service ("Sign in again",
   with a Sign In button); Graph Sync's own notification for it is gone.
+- Sharing: name suggestions come from the suite's people search, which finds a colleague by any
+  word of the name (before: only by the start of the name or address).
+- Settings > Account has a button to System Settings > Microsoft 365 Accounts.
 
 ## 0.13.0 (2026-11-17)
 
