@@ -66,7 +66,10 @@ suite's shared account service, [plasma-graphcore-linux](https://github.com/nvae
   against filling the disk, and a regular full check next to the change feed
 - Sign-in with a code (Microsoft's device login) when the browser cannot return to the app; on
   systems with Qt older than 6.9 (such as Debian 13) this is the only way to sign in
-- Notifications for conflicts, problems, many deleted files and expired sign-ins
+- Notifications for conflicts, problems and many deleted files; an expired sign-in is announced once
+  for the whole suite by its account service, with a Sign In button
+- The system's proxy settings (System Settings > Network > Proxy) for every request; accounts
+  can also be managed under System Settings > Microsoft 365 Accounts, shared with the suite's other apps
 - A notification when a new version is out, and the same in Settings > About (see
   [Update check](#update-check))
 - English and Dutch
