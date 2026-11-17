@@ -6,6 +6,8 @@
 #include "graphsync_debug.h"
 #include "ratelimiter.h"
 
+#include <graphcore/errors.h>
+
 #include <QDateTime>
 #include <QEventLoop>
 #include <QFile>
@@ -121,6 +123,11 @@ QJsonObject GraphResponse::json() const
 QString GraphResponse::graphErrorCode() const
 {
     return json().value(QLatin1String("error")).toObject().value(QLatin1String("code")).toString();
+}
+
+QString GraphResponse::userMessage() const
+{
+    return ok() ? QString() : GraphCore::Errors::message(status, graphErrorCode(), withoutQueries(errorString));
 }
 
 QString GraphResponse::describe() const

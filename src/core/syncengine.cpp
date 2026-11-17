@@ -1049,7 +1049,7 @@ bool SyncEngine::hydrateNow(const QString &rel, QString *error)
         } else if (response.status == 0) {
             *error = i18n("No connection to Microsoft 365. Check the network connection.");
         } else {
-            *error = response.describe();
+            *error = response.userMessage();
         }
         return false;
     }
@@ -1340,7 +1340,7 @@ void SyncEngine::handleLocalShortcutChanges(const QHash<QString, LocalEntry> &sc
             }
             const GraphResponse response = m_graph->patchJson(itemPath(shortcut.id), body);
             if (!response.ok()) {
-                recordError(i18n("Moving shortcut %1 to %2 online failed: %3", *rel, newRel, response.describe()));
+                recordError(i18n("Moving shortcut %1 to %2 online failed: %3", *rel, newRel, response.userMessage()));
                 continue;
             }
             shortcut.name = nameOf(newRel);
@@ -1353,7 +1353,7 @@ void SyncEngine::handleLocalShortcutChanges(const QHash<QString, LocalEntry> &sc
         // Deleted here: like OneDrive, remove the shortcut (the library it points to is untouched)
         const GraphResponse response = m_graph->deleteResource(itemPath(shortcut.id));
         if (!response.ok() && response.status != 404) {
-            recordError(i18n("Removing shortcut %1 online failed: %2", *rel, response.describe()));
+            recordError(i18n("Removing shortcut %1 online failed: %2", *rel, response.userMessage()));
             continue;
         }
         log(i18n("Removed shortcut %1 online: its folder was deleted here", *rel), QStringLiteral("deleted"), *rel);
@@ -1631,7 +1631,7 @@ bool SyncEngine::remotePhase(QString *error)
                 // The daemon also shows "Sign in again" with a button for this
                 *error = i18n("Your sign-in expired. Sign in again to continue syncing.");
             } else {
-                *error = i18n("Fetching changes failed: %1", response.describe());
+                *error = i18n("Fetching changes failed: %1", response.userMessage());
             }
             return false;
         }
@@ -1668,7 +1668,7 @@ bool SyncEngine::remotePhase(QString *error)
         if (m_rootItemId.isEmpty()) {
             const GraphResponse root = m_graph->get(QStringLiteral("/drives/%1/root?$select=id").arg(m_root.driveId));
             if (!root.ok()) {
-                *error = i18n("Cannot read the drive root: %1", root.describe());
+                *error = i18n("Cannot read the drive root: %1", root.userMessage());
                 return false;
             }
             m_rootItemId = root.json().value(QLatin1String("id")).toString();
@@ -2061,7 +2061,7 @@ void SyncEngine::enumerateNewFolder(const QString &folderId)
     while (!link.isEmpty() && !m_cancel) {
         const GraphResponse response = m_graph->get(link);
         if (!response.ok()) {
-            recordError(i18n("Listing a folder that was moved in failed: %1", response.describe()));
+            recordError(i18n("Listing a folder that was moved in failed: %1", response.userMessage()));
             return;
         }
         const QJsonObject page = response.json();
@@ -2263,7 +2263,7 @@ bool SyncEngine::finishDownload(const DriveItem &item, const QString &rel, const
         // Also the text of the notification when opening an online-only file fails
         recordError(response.status == 0 && !response.errorString.contains(QLatin1String("cancelled"))
                         ? i18n("Download of %1 failed: no connection to Microsoft 365", rel)
-                        : i18n("Download of %1 failed: %2", rel, response.describe()));
+                        : i18n("Download of %1 failed: %2", rel, response.userMessage()));
         return false;
     }
     const QString hash = QuickXorHash::hashFile(tmp);
@@ -2898,7 +2898,7 @@ bool SyncEngine::createRemoteFolder(const QString &rel, quint64 inode)
     }
     if (!response.ok()) {
         markError(rel);
-        recordError(i18n("Creating folder %1 online failed: %2", rel, response.describe()));
+        recordError(i18n("Creating folder %1 online failed: %2", rel, response.userMessage()));
         return false;
     }
     const DriveItem item = DriveItem::fromJson(response.json());
@@ -2953,7 +2953,7 @@ bool SyncEngine::moveRemote(const QString &id, const QString &newRel)
     }
     const GraphResponse response = m_graph->patchJson(itemPath(id), body);
     if (!response.ok()) {
-        recordError(i18n("Moving %1 to %2 online failed: %3", oldRel.value_or(id), newRel, response.describe()));
+        recordError(i18n("Moving %1 to %2 online failed: %3", oldRel.value_or(id), newRel, response.userMessage()));
         return false;
     }
     const DriveItem item = DriveItem::fromJson(response.json());
@@ -3246,7 +3246,7 @@ void SyncEngine::runQueuedUploads()
                     uploadFailed(rel, 0);
                 } else {
                     markError(rel);
-                    recordError(i18n("Upload of %1 failed: %2", rel, response.describe()));
+                    recordError(i18n("Upload of %1 failed: %2", rel, response.userMessage()));
                 }
             };
             jobs.append(job);
@@ -3311,7 +3311,7 @@ void SyncEngine::restoreFromRemote(const QString &id)
 {
     const GraphResponse response = m_graph->get(itemPath(id) + QStringLiteral("?$select=") + DriveItem::selectFields());
     if (!response.ok()) {
-        recordError(i18n("Cannot fetch the online version: %1", response.describe()));
+        recordError(i18n("Cannot fetch the online version: %1", response.userMessage()));
         return;
     }
     const DriveItem item = DriveItem::fromJson(response.json());
@@ -3348,7 +3348,7 @@ void SyncEngine::deleteRemote(const QStringList &ids)
             if (!children.ok() && children.status != 404) {
                 // Not known whether it is empty: not deleted now, tried again next cycle
                 markError(rel);
-                recordError(i18n("Deleting folder %1 online waits: could not check whether it is empty (%2)", rel, children.describe()));
+                recordError(i18n("Deleting folder %1 online waits: could not check whether it is empty (%2)", rel, children.userMessage()));
                 continue;
             }
             if (children.ok() && !children.json().value(QLatin1String("value")).toArray().isEmpty()) {
@@ -3370,7 +3370,7 @@ void SyncEngine::deleteRemote(const QStringList &ids)
             restoreFromRemote(id);
         } else {
             markError(rel);
-            recordError(i18n("Deleting %1 online failed: %2", rel, response.describe()));
+            recordError(i18n("Deleting %1 online failed: %2", rel, response.userMessage()));
         }
     }
 }

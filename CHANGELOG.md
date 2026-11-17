@@ -5,6 +5,14 @@ development phase; the third number counts fixes.
 
 ## 0.14.0 (in development)
 
+**New**
+- The system's proxy (System Settings > Network > Proxy) for every request.
+
+**Changed**
+- Errors say what happened and what to do, in the same words as the suite's other apps (for
+  example "You do not have permission for this. (HTTP 403 accessDenied)" instead of only the code).
+- The network state (metered connection, back online) comes from the suite's core.
+
 ## 0.13.0 (2026-11-17)
 
 **New**

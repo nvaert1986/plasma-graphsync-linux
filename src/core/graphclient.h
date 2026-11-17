@@ -35,6 +35,8 @@ struct GraphResponse {
     // Graph error code ("itemNotFound", "notAllowed", ...) and message, when present
     QString graphErrorCode() const;
     QString describe() const;
+    // For people: the suite's message (GraphCore::Errors); describe() stays for logs
+    QString userMessage() const;
 };
 
 using HeaderList = QList<QPair<QByteArray, QByteArray>>;

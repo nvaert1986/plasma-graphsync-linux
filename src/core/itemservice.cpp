@@ -134,10 +134,8 @@ QString ItemService::describe(const GraphResponse &response)
     if (response.status == 404 || code == QLatin1String("itemNotFound")) {
         return i18n("This item is not online yet. Wait until it has synced and try again.");
     }
-    if (code == QLatin1String("notAllowed") || code == QLatin1String("accessDenied") || response.status == 403) {
-        return i18n("Your organisation does not allow this here. (%1)", response.describe());
-    }
-    return response.describe();
+    // The suite's message: permission, policy, storage, throttling, ...
+    return response.userMessage();
 }
 
 ItemService::Item ItemService::resolve(const QString &localPath, QString *error)

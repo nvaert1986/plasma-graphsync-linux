@@ -4,6 +4,7 @@
 #include "backend.h"
 
 #include <KAboutData>
+#include <graphcore/proxy.h>
 #include <KDBusService>
 #include <KLocalizedQmlContext>
 #include <KLocalizedString>
@@ -94,6 +95,8 @@ int main(int argc, char **argv)
     KLocalizedString::setApplicationDomain("plasma-graphsync-linux");
     // Accounts are shared by the suite; the app registration per account is this app's own
     GraphCore::Accounts::setApplication(QStringLiteral("plasma-graphsync-linux"));
+    // Every Graph request through the system's proxy (System Settings > Network > Proxy)
+    GraphCore::Proxy::useSystemSettings();
     if (qEnvironmentVariableIsEmpty("QT_QUICK_CONTROLS_STYLE")) {
         QQuickStyle::setStyle(QStringLiteral("org.kde.desktop"));
     }

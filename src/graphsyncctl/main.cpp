@@ -13,6 +13,7 @@
 #include "updatecheck.h"
 
 #include <KConfig>
+#include <graphcore/proxy.h>
 #include <KConfigGroup>
 
 #include <QCommandLineParser>
@@ -123,6 +124,8 @@ int main(int argc, char **argv)
     QCoreApplication::setApplicationName(QStringLiteral("graphsyncctl"));
     // Accounts are shared by the suite; the app registration per account is this app's own
     GraphCore::Accounts::setApplication(QStringLiteral("plasma-graphsync-linux"));
+    // Every Graph request through the system's proxy (System Settings > Network > Proxy)
+    GraphCore::Proxy::useSystemSettings();
     QCoreApplication::setApplicationVersion(QStringLiteral(GRAPHSYNC_VERSION));
 
     QCommandLineParser parser;

@@ -21,7 +21,6 @@
 #include <QGuiApplication>
 #include <QJsonArray>
 #include <QMimeData>
-#include <QNetworkInformation>
 #include <QProcess>
 
 #include <algorithm>
@@ -67,16 +66,14 @@ Daemon::Daemon(QObject *parent)
     m_resumeTimer.setSingleShot(true);
     connect(&m_resumeTimer, &QTimer::timeout, this, &Daemon::scheduleResume);
 
-    if (QNetworkInformation::loadBackendByFeatures(QNetworkInformation::Feature::Metered)) {
-        connect(QNetworkInformation::instance(), &QNetworkInformation::isMeteredChanged, this, &Daemon::updateMetered);
-        // Back online (the NetworkManager backend reports reachability too): sync at once
-        // instead of waiting for the next retry of the offline locations
-        connect(QNetworkInformation::instance(), &QNetworkInformation::reachabilityChanged, this, [this](QNetworkInformation::Reachability reachability) {
-            if (reachability == QNetworkInformation::Reachability::Online) {
-                syncNow();
-            }
-        });
-    }
+    // The suite's network state (GraphCore::Connectivity)
+    connect(&m_network, &GraphCore::Connectivity::Watcher::meteredChanged, this, &Daemon::updateMetered);
+    // Back online: sync at once instead of waiting for the next retry of the offline locations
+    connect(&m_network, &GraphCore::Connectivity::Watcher::onlineChanged, this, [this](bool online) {
+        if (online) {
+            syncNow();
+        }
+    });
     reloadAccount();
     updateMetered();
 
@@ -503,8 +500,7 @@ void Daemon::resume()
 
 void Daemon::updateMetered()
 {
-    const auto *info = QNetworkInformation::instance();
-    const bool metered = info && info->isMetered() && Config::general().pauseOnMeteredNetwork;
+    const bool metered = m_network.isMetered() && Config::general().pauseOnMeteredNetwork;
     if (metered != m_meteredPaused) {
         m_meteredPaused = metered;
         qCInfo(GRAPHSYNC) << (metered ? "Metered network, pausing" : "No longer on a metered network");

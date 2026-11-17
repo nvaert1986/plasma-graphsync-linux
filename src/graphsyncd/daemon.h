@@ -8,6 +8,8 @@
 #include "ratelimiter.h"
 #include "updatecheck.h"
 
+#include <graphcore/connectivity.h>
+
 #include <QDBusMessage>
 #include <QDateTime>
 #include <QElapsedTimer>
@@ -177,6 +179,7 @@ private:
     void scheduleResume();
     QTimer m_resumeTimer;
     bool m_meteredPaused = false;
+    GraphCore::Connectivity::Watcher m_network;
 
     // Errors already notified, with the time, so a recurring error is shown once an hour
     QHash<QString, QDateTime> m_notifiedErrors;

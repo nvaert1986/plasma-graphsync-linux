@@ -1054,7 +1054,7 @@ QString Backend::addPersonalFor(const QString &accountId)
     const GraphResponse drive = graph->get(QStringLiteral("/me/drive?$select=id,webUrl"));
     setBusy(false);
     if (!drive.ok()) {
-        setError(drive.describe());
+        setError(drive.userMessage());
         return {};
     }
     // Its own organisation, never the current account's: fetched now when not known yet, else the
@@ -1298,7 +1298,7 @@ GraphResponse Backend::get(const QString &path, const QString &accountId)
     setBusy(true);
     const GraphResponse response = graph->get(path);
     setBusy(false);
-    setError(response.ok() ? QString() : response.describe());
+    setError(response.ok() ? QString() : response.userMessage());
     return response;
 }
 
@@ -1783,7 +1783,7 @@ QVariantMap Backend::resolveOdopen(const QString &url)
 
     const GraphResponse site = get(QStringLiteral("/sites/%1,%2,%3?$select=id,displayName,webUrl").arg(host, siteId, webId), account.id);
     if (!site.ok()) {
-        result.insert(QStringLiteral("error"), i18n("The site could not be opened: %1", site.describe()));
+        result.insert(QStringLiteral("error"), i18n("The site could not be opened: %1", site.userMessage()));
         return result;
     }
     const QString siteGraphId = site.json().value(QLatin1String("id")).toString();
@@ -1791,7 +1791,7 @@ QVariantMap Backend::resolveOdopen(const QString &url)
     const QString siteName = site.json().value(QLatin1String("displayName")).toString();
     const GraphResponse drive = get(QStringLiteral("/sites/%1/lists/%2/drive?$select=id,name,webUrl").arg(siteGraphId, listId), account.id);
     if (!drive.ok()) {
-        result.insert(QStringLiteral("error"), i18n("The library could not be opened: %1", drive.describe()));
+        result.insert(QStringLiteral("error"), i18n("The library could not be opened: %1", drive.userMessage()));
         return result;
     }
     const QString libraryName = drive.json().value(QLatin1String("name")).toString();
@@ -1809,7 +1809,7 @@ QVariantMap Backend::resolveOdopen(const QString &url)
         const GraphResponse folder =
             get(QStringLiteral("/sites/%1/lists/%2/items/%3/driveItem?$select=id,name,webUrl").arg(siteGraphId, listId, folderId), account.id);
         if (!folder.ok()) {
-            result.insert(QStringLiteral("error"), i18n("The folder could not be opened: %1", folder.describe()));
+            result.insert(QStringLiteral("error"), i18n("The folder could not be opened: %1", folder.userMessage()));
             return result;
         }
         const QString folderName = folder.json().value(QLatin1String("name")).toString();

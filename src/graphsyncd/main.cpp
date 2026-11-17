@@ -9,6 +9,7 @@
 #include "socketserver.h"
 
 #include <KLocalizedString>
+#include <graphcore/proxy.h>
 
 #include <QCoreApplication>
 #include <QDBusConnection>
@@ -53,6 +54,8 @@ int main(int argc, char **argv)
     KLocalizedString::setApplicationDomain("plasma-graphsync-linux");
     // Accounts are shared by the suite; the app registration per account is this app's own
     GraphCore::Accounts::setApplication(QStringLiteral("plasma-graphsync-linux"));
+    // Every Graph request through the system's proxy (System Settings > Network > Proxy)
+    GraphCore::Proxy::useSystemSettings();
 
     // SIGTERM/SIGINT: quit the event loop so every root finishes its cycle and saves state
     if (::socketpair(AF_UNIX, SOCK_STREAM, 0, signalPipe) == 0) {

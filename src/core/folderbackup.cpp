@@ -88,7 +88,7 @@ RootConfig prepare(GraphClient *graph, const QString &accountId, const Folder &f
     // The account's own OneDrive
     const GraphResponse drive = graph->get(QStringLiteral("/me/drive?$select=id,webUrl"));
     if (!drive.ok()) {
-        *error = i18n("Cannot reach the OneDrive of this account: %1", drive.describe());
+        *error = i18n("Cannot reach the OneDrive of this account: %1", drive.userMessage());
         return {};
     }
     const QString driveId = drive.json().value(QLatin1String("id")).toString();
@@ -109,7 +109,7 @@ RootConfig prepare(GraphClient *graph, const QString &accountId, const Folder &f
         }
     }
     if (!item.ok()) {
-        *error = i18n("Cannot find or create the folder %1 in OneDrive: %2", folder.onlineName, item.describe());
+        *error = i18n("Cannot find or create the folder %1 in OneDrive: %2", folder.onlineName, item.userMessage());
         return {};
     }
     const QJsonObject json = item.json();
