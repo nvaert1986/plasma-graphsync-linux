@@ -3,6 +3,20 @@
 All notable changes to Graph Sync (plasma-graphsync-linux). Versions follow the last finished
 development phase; the third number counts fixes.
 
+## 0.13.0 (in development)
+
+**New**
+- Graph Mail, the suite's mail app, works with your synced files when both are installed: links to
+  SharePoint and OneDrive files in a mail open their synced copy, attachments can be saved into
+  synced folders, synced files can be attached as links (the recipients get access when the message
+  is sent), and attachments over 25 MB go into OneDrive's Attachments folder as a link.
+- Dolphin: Send Link by E-mail on synced files, when Graph Mail is installed.
+
+**Changed**
+- Signing in is done by the suite's account service only: the sign-in Graph Sync stored itself before
+  0.11 is removed once the service has its own. Versions before 0.11 then have to sign in again.
+- Needs plasma-graphcore-linux 0.13.
+
 ## 0.12.0 (2026-11-17)
 
 **Changed**
