@@ -8,6 +8,8 @@
 #include <KFileItem>
 #include <KFileItemListProperties>
 #include <KLocalizedString>
+#include <KShell>
+#include <KDesktopFile>
 #include <KPluginFactory>
 
 #include <QAction>
@@ -19,7 +21,9 @@
 #include <QJsonObject>
 #include <QIcon>
 #include <QMenu>
+#include <QFileInfo>
 #include <QProcess>
+#include <QStandardPaths>
 
 K_PLUGIN_CLASS_WITH_JSON(ActionPlugin, "actionplugin.json")
 
@@ -87,6 +91,23 @@ void launchApp(const QStringList &arguments)
 {
     QProcess::startDetached(QStringLiteral(GRAPHSYNC_BINDIR "/plasma-graphsync-linux"), arguments);
 }
+
+// Graph Mail, the suite's mail app, when it is installed (its menu entry and its program): empty
+// when not, and then nothing that needs it is offered
+QString graphMailProgram()
+{
+    const QString entry = QStandardPaths::locate(QStandardPaths::ApplicationsLocation, QStringLiteral("io.github.nvaert1986.graphmail.desktop"));
+    if (entry.isEmpty()) {
+        return {};
+    }
+    // The program its menu entry starts (~/.local/bin is not always on PATH)
+    const QString exec = KDesktopFile(entry).desktopGroup().readEntry("Exec");
+    QString program = KShell::splitArgs(exec).value(0);
+    if (!program.isEmpty() && !program.startsWith(QLatin1Char('/'))) {
+        program = QStandardPaths::findExecutable(program);
+    }
+    return !program.isEmpty() && QFileInfo(program).isExecutable() ? program : QString();
+}
 }
 
 ActionPlugin::ActionPlugin(QObject *parent, const QVariantList &args)
@@ -130,6 +151,25 @@ QList<QAction *> ActionPlugin::actions(const KFileItemListProperties &fileItemIn
         connect(copyLink, &QAction::triggered, this, [path] {
             launchApp({QStringLiteral("--copy-link"), path});
         });
+    }
+    // A new message in Graph Mail with the files as links (the recipients get access when it is
+    // sent); files only, and only with Graph Mail installed
+    const bool onlyFiles = std::none_of(items.cbegin(), items.cend(), [](const KFileItem &item) {
+        return item.isDir();
+    });
+    if (onlyFiles && !isRoot) {
+        if (const QString graphMail = graphMailProgram(); !graphMail.isEmpty()) {
+            QStringList arguments;
+            for (const KFileItem &item : items) {
+                arguments << QStringLiteral("--compose-link") << QDir::cleanPath(item.localPath());
+            }
+            QAction *mail = menu->addAction(QIcon::fromTheme(QStringLiteral("mail-message-new")), i18ncp("@action:inmenu", "Send Link by E-mail", "Send Links by E-mail", items.size()));
+            connect(mail, &QAction::triggered, this, [graphMail, arguments] {
+                QProcess::startDetached(graphMail, arguments);
+            });
+        }
+    }
+    if (single) {
 
         // The app asks Graph for the item's own address (Office files open in the browser editor)
         QAction *viewOnline = menu->addAction(QIcon::fromTheme(QStringLiteral("internet-services")), i18nc("@action:inmenu", "View Online"));

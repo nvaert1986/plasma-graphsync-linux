@@ -4,7 +4,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: plasma-graphsync-linux\n"
-"PO-Revision-Date: 2026-11-13 08:36+0100\n"
+"PO-Revision-Date: 2026-11-17 12:05+0100\n"
 "Last-Translator: plasma-graphsync-linux contributors\n"
 "Language-Team: Dutch\n"
 "Language: nl\n"
@@ -377,6 +377,18 @@ msgstr "Link gekopieerd"
 msgid "Link Settings…"
 msgstr "Linkinstellingen…"
 
+msgid "Graph Sync %1 is available"
+msgstr "Graph Sync %1 is beschikbaar"
+
+msgid "This computer has version %1. The release page has the packages and what changed."
+msgstr "Deze computer heeft versie %1. Op de releasepagina staan de pakketten en wat er veranderd is."
+
+msgid "Release Notes…"
+msgstr "Uitgavenotities…"
+
+msgid "Skip This Version"
+msgstr "Deze versie overslaan"
+
 msgid "Could not copy a link to %1"
 msgstr "Kan geen link naar %1 kopiëren"
 
@@ -555,6 +567,12 @@ msgstr "Delen…"
 msgctxt "@action:inmenu"
 msgid "Copy Link"
 msgstr "Link kopiëren"
+
+msgctxt "@action:inmenu"
+msgid "Send Link by E-mail"
+msgid_plural "Send Links by E-mail"
+msgstr[0] "Link versturen per e-mail"
+msgstr[1] "Links versturen per e-mail"
 
 msgctxt "@action:inmenu"
 msgid "View Online"
@@ -1072,6 +1090,33 @@ msgstr "Bezig met controleren; bij grote bibliotheken kan dit even duren."
 msgid "Version %1"
 msgstr "Versie %1"
 
+msgid "Graph Sync %1 is available."
+msgstr "Graph Sync %1 is beschikbaar."
+
+msgid "Release Notes"
+msgstr "Uitgavenotities"
+
+msgid "Check for new versions"
+msgstr "Controleren op nieuwe versies"
+
+msgid "Asks GitHub once a day which version is the newest. Nothing is sent but the request itself; GitHub sees the address of your internet connection, as with any website."
+msgstr "Vraagt GitHub één keer per dag wat de nieuwste versie is. Er wordt niets meegestuurd behalve het verzoek zelf; GitHub ziet het adres van je internetverbinding, zoals bij elke website."
+
+msgid "Check Now"
+msgstr "Nu controleren"
+
+msgid "Checking…"
+msgstr "Controleren…"
+
+msgid "Could not check: %1"
+msgstr "Controleren mislukt: %1"
+
+msgid "This is the newest version (checked %1)."
+msgstr "Dit is de nieuwste versie (gecontroleerd op %1)."
+
+msgid "Not checked yet."
+msgstr "Nog niet gecontroleerd."
+
 msgid "License:"
 msgstr "Licentie:"
 
@@ -1390,42 +1435,3 @@ msgstr "Meld je in de browser aan met dit werkaccount."
 
 msgid "Looking up the organization…"
 msgstr "Organisatie opzoeken…"
-
-msgid "Graph Sync %1 is available"
-msgstr "Graph Sync %1 is beschikbaar"
-
-msgid "This computer has version %1. The release page has the packages and what changed."
-msgstr "Deze computer heeft versie %1. Op de releasepagina staan de pakketten en wat er veranderd is."
-
-msgid "Release Notes…"
-msgstr "Uitgavenotities…"
-
-msgid "Skip This Version"
-msgstr "Deze versie overslaan"
-
-msgid "Graph Sync %1 is available."
-msgstr "Graph Sync %1 is beschikbaar."
-
-msgid "Release Notes"
-msgstr "Uitgavenotities"
-
-msgid "Check for new versions"
-msgstr "Controleren op nieuwe versies"
-
-msgid "Asks GitHub once a day which version is the newest. Nothing is sent but the request itself; GitHub sees the address of your internet connection, as with any website."
-msgstr "Vraagt GitHub één keer per dag wat de nieuwste versie is. Er wordt niets meegestuurd behalve het verzoek zelf; GitHub ziet het adres van je internetverbinding, zoals bij elke website."
-
-msgid "Check Now"
-msgstr "Nu controleren"
-
-msgid "Checking…"
-msgstr "Controleren…"
-
-msgid "Could not check: %1"
-msgstr "Controleren mislukt: %1"
-
-msgid "This is the newest version (checked %1)."
-msgstr "Dit is de nieuwste versie (gecontroleerd op %1)."
-
-msgid "Not checked yet."
-msgstr "Nog niet gecontroleerd."

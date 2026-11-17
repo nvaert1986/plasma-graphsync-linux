@@ -4,7 +4,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: kcm_graphsync\n"
-"PO-Revision-Date: 2026-11-13 08:36+0100\n"
+"PO-Revision-Date: 2026-11-17 12:05+0100\n"
 "Last-Translator: plasma-graphsync-linux contributors\n"
 "Language-Team: Dutch\n"
 "Language: nl\n"
@@ -489,29 +489,14 @@ msgstr "Graph Sync"
 msgid "Version %1"
 msgstr "Versie %1"
 
-msgid "License:"
-msgstr "Licentie:"
-
-msgid "GNU General Public License, version 3 or later"
-msgstr "GNU General Public License, versie 3 of later"
-
-msgid "Sync state:"
-msgstr "Synchronisatiestatus:"
-
-msgid "Logs:"
-msgstr "Logboeken:"
-
-msgid "Graph Sync is not affiliated with or endorsed by Microsoft. OneDrive and SharePoint are trademarks of Microsoft Corporation."
-msgstr "Graph Sync is niet verbonden aan of goedgekeurd door Microsoft. OneDrive en SharePoint zijn handelsmerken van Microsoft Corporation."
-
-msgid "Skip This Version"
-msgstr "Deze versie overslaan"
-
 msgid "Graph Sync %1 is available."
 msgstr "Graph Sync %1 is beschikbaar."
 
 msgid "Release Notes"
 msgstr "Uitgavenotities"
+
+msgid "Skip This Version"
+msgstr "Deze versie overslaan"
 
 msgid "Check for new versions"
 msgstr "Controleren op nieuwe versies"
@@ -533,3 +518,18 @@ msgstr "Dit is de nieuwste versie (gecontroleerd op %1)."
 
 msgid "Not checked yet."
 msgstr "Nog niet gecontroleerd."
+
+msgid "License:"
+msgstr "Licentie:"
+
+msgid "GNU General Public License, version 3 or later"
+msgstr "GNU General Public License, versie 3 of later"
+
+msgid "Sync state:"
+msgstr "Synchronisatiestatus:"
+
+msgid "Logs:"
+msgstr "Logboeken:"
+
+msgid "Graph Sync is not affiliated with or endorsed by Microsoft. OneDrive and SharePoint are trademarks of Microsoft Corporation."
+msgstr "Graph Sync is niet verbonden aan of goedgekeurd door Microsoft. OneDrive en SharePoint zijn handelsmerken van Microsoft Corporation."
