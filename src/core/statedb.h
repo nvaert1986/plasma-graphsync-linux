@@ -62,6 +62,11 @@ public:
     // local file at path is the synced item itemId of location rootId (same inode as recorded;
     // for an online-only file its placeholder's). False when the state does not know the item.
     static bool localMatches(const QString &rootId, const QString &itemId, const QString &path);
+    // Read-only, from another process or thread: where item itemId lies below the location's
+    // remote root (its path relative to the local folder, "/"-separated), and whether only its
+    // placeholder is on disk. Empty when the state does not know it or it is not below that root
+    // (remoteRootId empty: the drive's root, whose items have no parent in the state).
+    static QString relativePathOf(const QString &rootId, const QString &itemId, const QString &remoteRootId, bool *dehydrated = nullptr);
 
     // Files On-Demand pins per relative path: what the user chose for a file or folder
     enum class Pin {

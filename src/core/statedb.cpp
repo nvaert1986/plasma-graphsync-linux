@@ -320,6 +320,53 @@ bool StateDb::localMatches(const QString &rootId, const QString &itemId, const Q
     return matches;
 }
 
+QString StateDb::relativePathOf(const QString &rootId, const QString &itemId, const QString &remoteRootId, bool *dehydrated)
+{
+    const QString file = QDir(Config::stateDirectory()).filePath(rootId + QStringLiteral(".sqlite3"));
+    if (!QFile::exists(file) || itemId.isEmpty()) {
+        return {};
+    }
+    const QString name = QStringLiteral("graphsync-path-%1").arg(reinterpret_cast<quintptr>(QThread::currentThread()), 0, 16);
+    QStringList parts;
+    bool found = false;
+    {
+        QSqlDatabase db = QSqlDatabase::addDatabase(QStringLiteral("QSQLITE"), name);
+        db.setDatabaseName(file);
+        db.setConnectOptions(QStringLiteral("QSQLITE_OPEN_READONLY;QSQLITE_BUSY_TIMEOUT=2000"));
+        if (db.open()) {
+            QSqlQuery q(db);
+            q.prepare(QStringLiteral("SELECT parent_id, name, dehydrated FROM items WHERE id = ?"));
+            QString current = itemId;
+            // Up the parents to the location's root; a cycle or a gap in the state ends it
+            for (int depth = 0; depth < 256; ++depth) {
+                if (!remoteRootId.isEmpty() && current == remoteRootId) {
+                    found = true;
+                    break;
+                }
+                q.addBindValue(current);
+                if (!q.exec() || !q.next()) {
+                    // The drive's root itself is no row of its own: its children's parent
+                    found = remoteRootId.isEmpty() && depth > 0;
+                    break;
+                }
+                if (depth == 0 && dehydrated) {
+                    *dehydrated = q.value(2).toBool();
+                }
+                parts.prepend(q.value(1).toString());
+                current = q.value(0).toString();
+                q.finish();
+                if (current.isEmpty()) {
+                    found = remoteRootId.isEmpty();
+                    break;
+                }
+            }
+            db.close();
+        }
+    }
+    QSqlDatabase::removeDatabase(name);
+    return found ? parts.join(QLatin1Char('/')) : QString();
+}
+
 void StateDb::begin()
 {
     QSqlDatabase::database(m_connectionName).transaction();

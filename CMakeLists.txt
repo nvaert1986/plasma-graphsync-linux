@@ -3,7 +3,7 @@
 
 cmake_minimum_required(VERSION 3.25)
 
-project(plasma-graphsync-linux VERSION 0.12.0 LANGUAGES CXX)
+project(plasma-graphsync-linux VERSION 0.13.0 LANGUAGES CXX)
 
 # Qt 6.9 and KDE Frameworks 6.20 are the main target. Older systems such as Debian 13 (Qt 6.8,
 # Frameworks 6.13, Plasma 6.3) build too, but sign in with a code only (Auth::browserLoginAvailable)
@@ -24,13 +24,13 @@ include(FeatureSummary)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-find_package(Qt6 ${QT_MIN_VERSION} REQUIRED COMPONENTS Core Gui Widgets Network Sql DBus WebSockets Qml Quick QuickControls2 Test)
+find_package(Qt6 ${QT_MIN_VERSION} REQUIRED COMPONENTS Core Gui Widgets Network Concurrent Sql DBus WebSockets Qml Quick QuickControls2 Test)
 find_package(KF6 ${KF_MIN_VERSION} REQUIRED COMPONENTS Bookmarks Config CoreAddons DBusAddons GuiAddons I18n KIO Notifications KCMUtils WindowSystem)
 find_package(KF6Kirigami ${KF_MIN_VERSION})
 find_package(Plasma REQUIRED)
 set_package_properties(KF6Kirigami PROPERTIES TYPE RUNTIME DESCRIPTION "QML components of the setup app and settings page")
 find_package(Qt6Keychain REQUIRED)
-find_package(GraphCore 0.12 REQUIRED)
+find_package(GraphCore 0.13 REQUIRED)
 
 # The daemon, tray menu and settings page start the app by absolute path: a systemd user
 # service does not necessarily have the install prefix (for example ~/.local/bin) in PATH

@@ -4,6 +4,7 @@
 #include "dbusservice.h"
 #include "daemon.h"
 #include "graphsync_debug.h"
+#include "linkservice.h"
 #include "rootcontroller.h"
 
 #include <QDBusConnection>
@@ -17,6 +18,7 @@
 #include <QProcess>
 #include <QTimer>
 #include <QUrl>
+#include <QtConcurrentRun>
 
 namespace GraphSync
 {
@@ -140,6 +142,47 @@ QByteArray DBusService::Thumbnail(const QString &path, int size, const QDBusMess
     if (!m_daemon->thumbnail(path, size, message)) {
         QDBusConnection::sessionBus().send(message.createReply(QVariant::fromValue(QByteArray())));
     }
+    return {};
+}
+
+namespace
+{
+// Runs a LinkService call on the thread pool and answers the D-Bus call from there
+template<typename F>
+void answerLater(const QDBusMessage &message, F work)
+{
+    message.setDelayedReply(true);
+    (void)QtConcurrent::run([message, work] {
+        const QJsonObject answer = work();
+        QDBusConnection::sessionBus().send(message.createReply(QString::fromUtf8(QJsonDocument(answer).toJson(QJsonDocument::Compact))));
+    });
+}
+}
+
+QString DBusService::FileLink(const QString &path, const QDBusMessage &message)
+{
+    const LinkService::Auths auths = m_daemon->linkAuths();
+    answerLater(message, [path, auths] {
+        return LinkService::fileLink(path, auths);
+    });
+    return {};
+}
+
+QString DBusService::ShareFile(const QString &path, const QStringList &emails, const QString &role, const QDBusMessage &message)
+{
+    const LinkService::Auths auths = m_daemon->linkAuths();
+    answerLater(message, [path, emails, role, auths] {
+        return LinkService::shareFile(path, emails, role, auths);
+    });
+    return {};
+}
+
+QString DBusService::LocalPathForUrl(const QString &url, const QDBusMessage &message)
+{
+    const LinkService::Auths auths = m_daemon->linkAuths();
+    answerLater(message, [url, auths] {
+        return LinkService::localPathForUrl(url, auths);
+    });
     return {};
 }
 

@@ -44,6 +44,12 @@ public Q_SLOTS:
     // Dolphin's thumbnailer: the thumbnail of an online-only file (placeholder path) as PNG or
     // JPEG bytes, empty when there is none; size is the longest side wanted. Answered later.
     Q_SCRIPTABLE QByteArray Thumbnail(const QString &path, int size, const QDBusMessage &message);
+    // For the other apps of the suite (Graph Mail, phase 10 step 7), answered later as JSON (see
+    // LinkService): a synced file's online address; sharing it with people (role write or read,
+    // no invitation mail); the local copy of a SharePoint/OneDrive link
+    Q_SCRIPTABLE QString FileLink(const QString &path, const QDBusMessage &message);
+    Q_SCRIPTABLE QString ShareFile(const QString &path, const QStringList &emails, const QString &role, const QDBusMessage &message);
+    Q_SCRIPTABLE QString LocalPathForUrl(const QString &url, const QDBusMessage &message);
 
 Q_SIGNALS:
     Q_SCRIPTABLE void StatusChanged(const QString &status);

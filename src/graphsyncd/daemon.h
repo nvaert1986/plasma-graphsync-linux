@@ -34,6 +34,9 @@ class Daemon : public QObject
 {
     Q_OBJECT
 public:
+    // The sign-ins of every account with a location here, for LinkService (other apps of the suite
+    // asking about synced files); main thread
+    QHash<QString, std::shared_ptr<Auth>> linkAuths();
     explicit Daemon(QObject *parent = nullptr);
     ~Daemon() override;
 

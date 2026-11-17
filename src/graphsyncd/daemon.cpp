@@ -874,6 +874,20 @@ bool Daemon::pin(const QStringList &paths, const QString &state)
     return true;
 }
 
+QHash<QString, std::shared_ptr<Auth>> Daemon::linkAuths()
+{
+    QHash<QString, std::shared_ptr<Auth>> auths;
+    const QList<RootConfig> roots = Config::roots();
+    for (const RootConfig &root : roots) {
+        if (!root.accountId.isEmpty() && !auths.contains(root.accountId)) {
+            if (std::shared_ptr<Auth> auth = authFor(root.accountId)) {
+                auths.insert(root.accountId, auth);
+            }
+        }
+    }
+    return auths;
+}
+
 bool Daemon::thumbnail(const QString &path, int size, const QDBusMessage &message)
 {
     const QString clean = QDir::cleanPath(path);

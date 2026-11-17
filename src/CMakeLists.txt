@@ -61,8 +61,8 @@ add_executable(graphsyncctl graphsyncctl/main.cpp)
 target_link_libraries(graphsyncctl PRIVATE graphsynccore Qt6::DBus)
 target_compile_definitions(graphsyncctl PRIVATE TRANSLATION_DOMAIN="plasma-graphsync-linux")
 
-add_executable(graphsyncd graphsyncd/main.cpp graphsyncd/daemon.cpp graphsyncd/rootcontroller.cpp graphsyncd/dbusservice.cpp graphsyncd/socketserver.cpp graphsyncd/places.cpp graphsyncd/thumbnailservice.cpp)
-target_link_libraries(graphsyncd PRIVATE graphsynccore Qt6::DBus Qt6::Gui KF6::Bookmarks KF6::GuiAddons KF6::Notifications)
+add_executable(graphsyncd graphsyncd/main.cpp graphsyncd/daemon.cpp graphsyncd/rootcontroller.cpp graphsyncd/dbusservice.cpp graphsyncd/socketserver.cpp graphsyncd/places.cpp graphsyncd/thumbnailservice.cpp graphsyncd/linkservice.cpp)
+target_link_libraries(graphsyncd PRIVATE graphsynccore Qt6::Concurrent Qt6::DBus Qt6::Gui KF6::Bookmarks KF6::GuiAddons KF6::Notifications)
 target_compile_definitions(graphsyncd PRIVATE TRANSLATION_DOMAIN="plasma-graphsync-linux")
 
 add_executable(plasma-graphsync-linux app/main.cpp app/backend.cpp)
