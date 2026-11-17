@@ -3,6 +3,8 @@
 All notable changes to Graph Sync (plasma-graphsync-linux). Versions follow the last finished
 development phase; the third number counts fixes.
 
+## 0.14.0 (in development)
+
 ## 0.13.0 (2026-11-17)
 
 **New**
