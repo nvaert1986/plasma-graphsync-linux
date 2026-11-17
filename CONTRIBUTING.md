@@ -24,6 +24,17 @@ A user install for trying changes on your own desktop is described in INSTALL.md
 for one user only"). Test sync changes on a test library or test site, never on data you cannot
 lose, and keep the online recycle bin in mind.
 
+## Versions and branches
+
+Graph Sync, Graph Mail and their shared core (plasma-graphcore-linux) keep one version number,
+major.minor.patch.
+
+- Within a release series only the last digit changes, and only for fixes: in 0.11.x the
+  configuration, the sync state and every interface to the other apps of the suite stay compatible.
+  New features wait for the next minor (0.12.0) or major (1.0.0).
+- Each series has a maintenance branch named after it (`0.11`). Fixes go there and are merged into
+  `main`; `main` holds the next series.
+
 ## Pull requests
 
 - Keep a pull request to one topic, and describe what changed and how you tested it.

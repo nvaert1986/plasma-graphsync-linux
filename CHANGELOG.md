@@ -3,6 +3,19 @@
 All notable changes to Graph Sync (plasma-graphsync-linux). Versions follow the last finished
 development phase; the third number counts fixes.
 
+## 0.11.0 (2026-11-17)
+
+Phase 10: one sign-in for the whole suite. The version jumps to 0.11.0 so the suite's apps (Graph
+Sync, Graph Mail and their shared core) share one version number.
+
+**Changed**
+- The sign-in moved to the suite's account service `graphaccountsd` (plasma-graphcore-linux), which
+  keeps the one sign-in of every app of the suite and hands out access tokens to them. Graph Sync
+  holds no tokens of its own any more. On the first start the service takes over the sign-in Graph
+  Sync stored before, so nobody has to sign in again. Signing out signs out every app of the suite.
+- Graph Sync now needs plasma-graphcore-linux (build and install it first); it no longer needs
+  Qt NetworkAuth. Packages for 0.11.0 follow once the core has packages too.
+
 ## 0.9.5 (2026-11-13)
 
 **New**
