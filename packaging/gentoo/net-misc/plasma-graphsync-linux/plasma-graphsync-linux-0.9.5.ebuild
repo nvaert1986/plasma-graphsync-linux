@@ -47,6 +47,8 @@ src_configure() {
 		# GRAPHSYNC_CLIENT_ID=... GRAPHSYNC_TENANT_ID=...
 		-DGRAPHSYNC_CLIENT_ID="${GRAPHSYNC_CLIENT_ID:-}"
 		-DGRAPHSYNC_TENANT_ID="${GRAPHSYNC_TENANT_ID:-}"
+		# New versions come through Portage, not from the notification about GitHub releases
+		-DGRAPHSYNC_UPDATE_CHECK=OFF
 	)
 	ecm_src_configure
 }

@@ -503,3 +503,33 @@ msgstr "Logboeken:"
 
 msgid "Graph Sync is not affiliated with or endorsed by Microsoft. OneDrive and SharePoint are trademarks of Microsoft Corporation."
 msgstr "Graph Sync is niet verbonden aan of goedgekeurd door Microsoft. OneDrive en SharePoint zijn handelsmerken van Microsoft Corporation."
+
+msgid "Skip This Version"
+msgstr "Deze versie overslaan"
+
+msgid "Graph Sync %1 is available."
+msgstr "Graph Sync %1 is beschikbaar."
+
+msgid "Release Notes"
+msgstr "Uitgavenotities"
+
+msgid "Check for new versions"
+msgstr "Controleren op nieuwe versies"
+
+msgid "Asks GitHub once a day which version is the newest. Nothing is sent but the request itself; GitHub sees the address of your internet connection, as with any website."
+msgstr "Vraagt GitHub één keer per dag wat de nieuwste versie is. Er wordt niets meegestuurd behalve het verzoek zelf; GitHub ziet het adres van je internetverbinding, zoals bij elke website."
+
+msgid "Check Now"
+msgstr "Nu controleren"
+
+msgid "Checking…"
+msgstr "Controleren…"
+
+msgid "Could not check: %1"
+msgstr "Controleren mislukt: %1"
+
+msgid "This is the newest version (checked %1)."
+msgstr "Dit is de nieuwste versie (gecontroleerd op %1)."
+
+msgid "Not checked yet."
+msgstr "Nog niet gecontroleerd."

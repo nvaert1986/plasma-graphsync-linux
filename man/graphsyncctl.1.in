@@ -83,6 +83,10 @@ Show the state of the sync service and the recent activity (JSON).
 .BR sync\-now " | " pause " [\fIMINUTES\fP] | " resume
 Sync at once, pause (for some minutes, or until resumed) or resume.
 .TP
+.BR check\-update " [" on " | " off "]"
+Ask GitHub for the newest release now and say whether it is newer than this version, or switch
+the sync service's daily check on or off (Settings > About > Check for new versions).
+.TP
 .B migrate
 Take over an install of plasma-onedrive-linux, the name before 0.7.0 (run once at login).
 .SH FILES IN SYNCED FOLDERS
@@ -121,7 +125,7 @@ Settings and locations.
 Accounts, shared with the other apps of the suite.
 .TP
 .I ~/.local/state/graphsync/
-Sync state per location.
+Sync state per location, and the last answer of the update check.
 .PP
 Sign-ins are kept in KWallet (service "plasma-graphsync-linux").
 .SH EXIT STATUS

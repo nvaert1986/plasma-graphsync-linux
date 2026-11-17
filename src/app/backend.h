@@ -68,6 +68,9 @@ class Backend : public QObject
     Q_PROPERTY(int freeUpAfterDays READ freeUpAfterDays WRITE setFreeUpAfterDays NOTIFY advancedChanged)
     Q_PROPERTY(QString excludePatterns READ excludePatterns WRITE setExcludePatterns NOTIFY advancedChanged)
     Q_PROPERTY(bool skipDotFiles READ skipDotFiles WRITE setSkipDotFiles NOTIFY advancedChanged)
+    // Notify about new releases on GitHub; updateCheckBuiltIn is false in builds without the check
+    Q_PROPERTY(bool checkForUpdates READ checkForUpdates WRITE setCheckForUpdates NOTIFY advancedChanged)
+    Q_PROPERTY(bool updateCheckBuiltIn READ updateCheckBuiltIn CONSTANT)
 public:
     // Window: the settings window and the setup wizard. Handler: one action without a window (open
     // a .cloud file, Download Now, Copy Link, View Online, Add Personal): no takeover of an old
@@ -113,6 +116,13 @@ public:
     void setExcludePatterns(const QString &patterns);
     bool skipDotFiles() const;
     void setSkipDotFiles(bool skip);
+    bool checkForUpdates() const;
+    void setCheckForUpdates(bool on);
+    bool updateCheckBuiltIn() const;
+
+    // Settings > About: look for a new version now, or no longer tell about this one
+    Q_INVOKABLE void checkForUpdatesNow();
+    Q_INVOKABLE void skipUpdate(const QString &version);
 
     // Settings > Advanced > Check All Files Again
     Q_INVOKABLE void recheckAll();

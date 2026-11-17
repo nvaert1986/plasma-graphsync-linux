@@ -71,6 +71,8 @@ struct GeneralConfig {
     int uploadLimitKBps = 0;
     // Files On-Demand: files not opened for this many days become online-only again; 0 = never
     int freeUpAfterDays = 0;
+    // Notify about a new release on GitHub (only in builds with the update check)
+    bool checkForUpdates = true;
 };
 
 namespace Config

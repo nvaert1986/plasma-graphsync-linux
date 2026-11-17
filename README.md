@@ -6,7 +6,7 @@
 A native KDE Plasma 6 sync client for OneDrive for Business and SharePoint document
 libraries, written in C++ with Qt 6 and KDE Frameworks 6.
 
-**Status:** version 0.9.4, phases 0 to 9 done (the version number follows the last finished
+**Status:** version 0.9.5, phases 0 to 9 done (the version number follows the last finished
 phase).
 
 > **Experimental: use at your own risk.** This is young software that uploads, changes and
@@ -66,6 +66,8 @@ phase).
 - Sign-in with a code (Microsoft's device login) when the browser cannot return to the app; on
   systems with Qt older than 6.9 (such as Debian 13) this is the only way to sign in
 - Notifications for conflicts, problems, many deleted files and expired sign-ins
+- A notification when a new version is out, and the same in Settings > About (see
+  [Update check](#update-check))
 - English and Dutch
 
 Not planned for now: co-authoring of Office documents.
@@ -87,6 +89,18 @@ window. Without them everything else works the same, and people are invited by t
 e-mail address. The client detects this by itself: there is nothing to configure, and granting
 the permissions later turns suggestions on after the next sign-in renewal (or at once after
 signing out and in). With only one of the two, suggestions come from that source alone.
+
+## Update check
+
+The packages on the releases page come from no repository, so the package manager does not tell
+you about a new version. Instead, the sync service asks GitHub once a day for the newest release
+(`api.github.com/repos/nvaert1986/plasma-graphsync-linux/releases/latest`). Nothing is sent but
+the request itself; like any website, GitHub sees the address of your internet connection.
+
+A newer version is announced with a notification at login and once a day, and in Settings >
+About, until you choose **Skip This Version**. Turn the check off with **Check for new versions**
+in Settings > About or `graphsyncctl check-update off`. Distributions that ship updates
+themselves can build without it: `-DGRAPHSYNC_UPDATE_CHECK=OFF` (the Gentoo ebuild does).
 
 ## Install
 

@@ -10,6 +10,7 @@
 #include "graphsync_debug.h"
 #include "migration.h"
 #include "placeholder.h"
+#include "updatecheck.h"
 
 #include <KConfig>
 #include <KConfigGroup>
@@ -295,6 +296,33 @@ void Backend::setSkipDotFiles(bool skip)
     updateGeneral([skip](GeneralConfig &general) {
         general.skipDotFiles = skip;
     });
+}
+
+bool Backend::checkForUpdates() const
+{
+    return Config::general().checkForUpdates;
+}
+
+void Backend::setCheckForUpdates(bool on)
+{
+    updateGeneral([on](GeneralConfig &general) {
+        general.checkForUpdates = on;
+    });
+}
+
+void Backend::checkForUpdatesNow()
+{
+    sendCommand({{QStringLiteral("command"), QStringLiteral("checkForUpdates")}});
+}
+
+void Backend::skipUpdate(const QString &version)
+{
+    sendCommand({{QStringLiteral("command"), QStringLiteral("skipUpdate")}, {QStringLiteral("version"), version}});
+}
+
+bool Backend::updateCheckBuiltIn() const
+{
+    return UpdateCheck::compiledIn();
 }
 
 void Backend::recheckAll()

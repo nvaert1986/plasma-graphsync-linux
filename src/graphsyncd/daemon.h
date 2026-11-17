@@ -6,6 +6,7 @@
 #include "auth.h"
 #include "config.h"
 #include "ratelimiter.h"
+#include "updatecheck.h"
 
 #include <QDBusMessage>
 #include <QDateTime>
@@ -91,8 +92,14 @@ public:
         // Bandwidth limits apply to running transfers at once; the rest at the next cycle
         const GeneralConfig general = Config::general();
         RateLimiter::setLimits(qint64(general.downloadLimitKBps) * 1024, qint64(general.uploadLimitKBps) * 1024);
+        // The update check switched on or off, or graphsyncctl check-update asked GitHub
+        checkForUpdates(false);
         Q_EMIT statusChanged();
     }
+    // A new release on GitHub: asks when the last answer is a day old (force: now)
+    void checkForUpdates(bool force);
+    // "Skip This Version" (notification, tray)
+    void skipUpdate(const QString &version);
 
 Q_SIGNALS:
     void statusChanged();
@@ -134,6 +141,7 @@ private:
     void notifyError(const QString &root, const QString &message);
     void notifyBigDelete(const QString &rootId, const QString &rootName, int missing, int known);
     void notifySignedOut(const QString &accountId);
+    void notifyUpdate(const QString &version, const QUrl &page);
     static void launchApp(const QStringList &arguments);
     // The sign-in of an account (created on first use); null for an unknown account. Shared with
     // the root controllers and the thumbnail worker, which keep it alive after a reload drops it here
@@ -171,6 +179,19 @@ private:
     QHash<QString, QDateTime> m_notifiedErrors;
     // Accounts already told to sign in again
     QSet<QString> m_signedOutNotified;
+
+    // New releases: the version to tell about (empty: none, skipped, or the check is off)
+    UpdateChecker m_updates;
+    QTimer m_updateTimer;
+    QString m_updateVersion;
+    QUrl m_updatePage;
+    // Why the last check failed; empty after an answer
+    QString m_updateError;
+    // Told about the new version since this login (the service starts with the session)
+    bool m_updateAnnounced = false;
+    // After a check or a change of the setting: what status() shows, and the notification at
+    // every login and once a day until the version is skipped
+    void refreshUpdate();
 };
 
 }

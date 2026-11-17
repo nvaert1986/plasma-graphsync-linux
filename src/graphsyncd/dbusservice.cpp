@@ -175,6 +175,10 @@ QString DBusService::Command(const QString &json)
         m_daemon->reloadOneAccount(id);
     } else if (command == QLatin1String("reloadSettings")) {
         m_daemon->reloadSettings();
+    } else if (command == QLatin1String("checkForUpdates")) {
+        m_daemon->checkForUpdates(true);
+    } else if (command == QLatin1String("skipUpdate")) {
+        m_daemon->skipUpdate(request.value(QLatin1String("version")).toString());
     } else if (command == QLatin1String("hydrate")) {
         // The .cloud open handler: download this online-only file now
         return toJson({{QStringLiteral("ok"), m_daemon->hydrate(request.value(QLatin1String("path")).toString())}});

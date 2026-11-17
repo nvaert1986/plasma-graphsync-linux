@@ -3,6 +3,18 @@
 All notable changes to Graph Sync (plasma-graphsync-linux). Versions follow the last finished
 development phase; the third number counts fixes.
 
+## 0.9.5 (2026-11-13)
+
+**New**
+- Update check: the packages on GitHub come from no repository, so no package manager tells their
+  users about a new version. The sync service now asks GitHub once a day for the newest release
+  (nothing is sent but the request itself) and announces a newer one with a notification at login
+  and once a day (it goes away after 15 seconds), and in Settings > About, with Release Notes and
+  Skip This Version. Settings > About has Check for new versions (on by default) and Check Now;
+  `graphsyncctl check-update` checks at once, `check-update on|off` switches the daily check.
+  Distributions that ship updates themselves can build without it with
+  `-DGRAPHSYNC_UPDATE_CHECK=OFF`; the Gentoo ebuild does.
+
 ## 0.9.4 (2026-11-13)
 
 From the remaining findings of the review of the sync service, and from a sync cycle that hung while

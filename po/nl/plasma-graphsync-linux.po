@@ -1390,3 +1390,42 @@ msgstr "Meld je in de browser aan met dit werkaccount."
 
 msgid "Looking up the organization…"
 msgstr "Organisatie opzoeken…"
+
+msgid "Graph Sync %1 is available"
+msgstr "Graph Sync %1 is beschikbaar"
+
+msgid "This computer has version %1. The release page has the packages and what changed."
+msgstr "Deze computer heeft versie %1. Op de releasepagina staan de pakketten en wat er veranderd is."
+
+msgid "Release Notes…"
+msgstr "Uitgavenotities…"
+
+msgid "Skip This Version"
+msgstr "Deze versie overslaan"
+
+msgid "Graph Sync %1 is available."
+msgstr "Graph Sync %1 is beschikbaar."
+
+msgid "Release Notes"
+msgstr "Uitgavenotities"
+
+msgid "Check for new versions"
+msgstr "Controleren op nieuwe versies"
+
+msgid "Asks GitHub once a day which version is the newest. Nothing is sent but the request itself; GitHub sees the address of your internet connection, as with any website."
+msgstr "Vraagt GitHub één keer per dag wat de nieuwste versie is. Er wordt niets meegestuurd behalve het verzoek zelf; GitHub ziet het adres van je internetverbinding, zoals bij elke website."
+
+msgid "Check Now"
+msgstr "Nu controleren"
+
+msgid "Checking…"
+msgstr "Controleren…"
+
+msgid "Could not check: %1"
+msgstr "Controleren mislukt: %1"
+
+msgid "This is the newest version (checked %1)."
+msgstr "Dit is de nieuwste versie (gecontroleerd op %1)."
+
+msgid "Not checked yet."
+msgstr "Nog niet gecontroleerd."

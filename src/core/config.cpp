@@ -193,6 +193,7 @@ GeneralConfig general()
     general.downloadLimitKBps = std::max(0, group.readEntry("DownloadLimitKBps", 0));
     general.uploadLimitKBps = std::max(0, group.readEntry("UploadLimitKBps", 0));
     general.freeUpAfterDays = std::max(0, group.readEntry("FreeUpAfterDays", 0));
+    general.checkForUpdates = group.readEntry("CheckForUpdates", true);
     return general;
 }
 
@@ -210,6 +211,7 @@ void setGeneral(const GeneralConfig &general)
     group.writeEntry("DownloadLimitKBps", general.downloadLimitKBps);
     group.writeEntry("UploadLimitKBps", general.uploadLimitKBps);
     group.writeEntry("FreeUpAfterDays", general.freeUpAfterDays);
+    group.writeEntry("CheckForUpdates", general.checkForUpdates);
     cfg->sync();
 }
 

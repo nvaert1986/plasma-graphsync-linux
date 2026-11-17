@@ -10,16 +10,19 @@
 #include "migration.h"
 #include "ratelimiter.h"
 #include "syncengine.h"
+#include "updatecheck.h"
 
 #include <KConfig>
 #include <KConfigGroup>
 
 #include <QCommandLineParser>
 #include <QCoreApplication>
+#include <QDBusConnectionInterface>
 #include <QDBusInterface>
 #include <QDBusReply>
 #include <QDir>
 #include <QElapsedTimer>
+#include <QEventLoop>
 #include <QFileInfo>
 #include <QJsonArray>
 #include <QJsonDocument>
@@ -105,6 +108,8 @@ const char usage[] = R"(Commands:
   roots | remove-root ROOT                  list or remove sync roots
   sync ROOT [--download-only]               run one sync cycle in this process
   status | activity | sync-now | pause [MINUTES] | resume   talk to the running graphsyncd
+  check-update [on|off]                     look for a new release on GitHub now, or switch the daily
+                                            check on or off
   migrate                                   take over an install of plasma-onedrive-linux (run once at login)
   item | link | permissions | unshare | invite | versions | get-version | restore-version | download |
   add-shortcut PATH ...                     work on a synced file with its location's account
@@ -283,6 +288,53 @@ int main(int argc, char **argv)
             .call(QStringLiteral("Command"), QStringLiteral(R"({"command":"reloadAccount","id":"%1"})").arg(account.id));
         out() << "Added " << account.displayName << " <" << account.userPrincipalName << "> (" << account.organization << ") as account " << account.id
               << "; it is now the current account" << Qt::endl;
+        return 0;
+    }
+
+    // Needs no sign-in
+    if (command == QLatin1String("check-update")) {
+        if (!UpdateCheck::compiledIn()) {
+            return fail(QStringLiteral("this build has no update check (GRAPHSYNC_UPDATE_CHECK=OFF)"));
+        }
+        const QString setting = args.value(1);
+        if (!setting.isEmpty() && setting != QLatin1String("on") && setting != QLatin1String("off")) {
+            return fail(QStringLiteral("check-update takes on, off or nothing"));
+        }
+        GeneralConfig general = Config::general();
+        if (!setting.isEmpty()) {
+            general.checkForUpdates = setting == QLatin1String("on");
+            Config::setGeneral(general);
+            out() << "daily update check " << (general.checkForUpdates ? "on" : "off") << Qt::endl;
+        } else {
+            UpdateChecker checker;
+            QEventLoop loop;
+            bool ok = false;
+            QString error;
+            QObject::connect(&checker, &UpdateChecker::checked, &loop, [&](bool success, const QString &message) {
+                ok = success;
+                error = message;
+                loop.quit();
+            });
+            checker.check(true);
+            loop.exec();
+            if (!ok) {
+                return fail(QStringLiteral("could not ask GitHub: %1").arg(error));
+            }
+            const QString available = checker.available();
+            if (available.isEmpty() && UpdateCheck::isNewer(checker.latest(), UpdateCheck::currentVersion())) {
+                out() << checker.latest() << " is available (this is " << UpdateCheck::currentVersion() << "), but skipped: it is not announced" << Qt::endl;
+            } else if (available.isEmpty()) {
+                out() << "no newer version than " << UpdateCheck::currentVersion() << " (newest release: " << checker.latest() << ")" << Qt::endl;
+            } else {
+                out() << available << " is available (this is " << UpdateCheck::currentVersion() << "): " << checker.page().toString() << Qt::endl;
+            }
+        }
+        // A running graphsyncd shows (or stops showing) the new version; one that is not running is
+        // not started for it (D-Bus would start it on the first call)
+        if (QDBusConnection::sessionBus().interface()->isServiceRegistered(DBusNames::service())) {
+            QDBusInterface(DBusNames::service(), DBusNames::path(), DBusNames::interfaceName())
+                .call(QStringLiteral("Command"), QStringLiteral(R"({"command":"reloadSettings"})"));
+        }
         return 0;
     }
 

@@ -15,6 +15,7 @@
 
 #include <QCoreApplication>
 #include <QCryptographicHash>
+#include <QDesktopServices>
 #include <QDir>
 #include <QFileInfo>
 #include <QGuiApplication>
@@ -39,6 +40,12 @@ void setPlainText(KNotification *notification, const QString &text)
 
 const QString componentName = QStringLiteral("plasma-graphsync-linux");
 constexpr int errorRenotifySeconds = 60 * 60;
+// New releases: first a few minutes after login (the network may not be up yet), then every hour
+// whether the last answer is a day old
+constexpr int firstUpdateCheckMs = 5 * 60 * 1000;
+constexpr int updateCheckEveryMs = 60 * 60 * 1000;
+// The new-version notification goes away by itself after this, unless a button is pressed first
+constexpr int updateNotificationMs = 15 * 1000;
 
 // A placeholder (.cloud) stands for its real file
 QString realFileOf(const QString &path)
@@ -72,6 +79,19 @@ Daemon::Daemon(QObject *parent)
     }
     reloadAccount();
     updateMetered();
+
+    connect(&m_updates, &UpdateChecker::checked, this, [this](bool ok, const QString &error) {
+        m_updateError = ok ? QString() : error;
+        refreshUpdate();
+    });
+    m_updateTimer.setInterval(updateCheckEveryMs);
+    connect(&m_updateTimer, &QTimer::timeout, this, [this] {
+        checkForUpdates(false);
+    });
+    QTimer::singleShot(firstUpdateCheckMs, this, [this] {
+        checkForUpdates(false);
+        m_updateTimer.start();
+    });
 }
 
 Daemon::~Daemon()
@@ -602,7 +622,44 @@ QJsonObject Daemon::status() const
         {QStringLiteral("pausedForMeteredNetwork"), m_meteredPaused},
         {QStringLiteral("pausedUntil"), m_pausedUntil.isValid() ? m_pausedUntil.toString(Qt::ISODate) : QString()},
         {QStringLiteral("roots"), roots},
+        {QStringLiteral("updateVersion"), m_updateVersion},
+        {QStringLiteral("updatePage"), m_updatePage.toString()},
+        {QStringLiteral("updateChecking"), m_updates.busy()},
+        {QStringLiteral("updateLastCheck"), m_updates.lastCheck().toString(Qt::ISODate)},
+        {QStringLiteral("updateError"), m_updateError},
     };
+}
+
+void Daemon::checkForUpdates(bool force)
+{
+    if (UpdateCheck::compiledIn() && Config::general().checkForUpdates) {
+        // checked() follows, also when GitHub was asked less than a day ago
+        m_updates.check(force);
+        if (m_updates.busy()) {
+            Q_EMIT statusChanged();
+        }
+    } else {
+        refreshUpdate();
+    }
+}
+
+void Daemon::refreshUpdate()
+{
+    const bool on = UpdateCheck::compiledIn() && Config::general().checkForUpdates;
+    m_updateVersion = on ? m_updates.available() : QString();
+    m_updatePage = on ? m_updates.page() : QUrl();
+    if (on && m_updates.announce(!m_updateAnnounced) && notificationsAvailable()) {
+        notifyUpdate(m_updateVersion, m_updatePage);
+        m_updates.markAnnounced();
+        m_updateAnnounced = true;
+    }
+    Q_EMIT statusChanged();
+}
+
+void Daemon::skipUpdate(const QString &version)
+{
+    m_updates.skip(version);
+    refreshUpdate();
 }
 
 QJsonArray Daemon::activity() const
@@ -899,6 +956,26 @@ void Daemon::notifyLinkCopied(const QString &path, const QString &name, const QS
         launchApp({QStringLiteral("--share"), path});
     });
     notification->sendEvent();
+}
+
+void Daemon::notifyUpdate(const QString &version, const QUrl &page)
+{
+    // Stays until closed here, so it is on screen long enough to read, whatever Plasma's own timeout
+    auto *notification = new KNotification(QStringLiteral("updateAvailable"), KNotification::Persistent);
+    notification->setComponentName(componentName);
+    notification->setTitle(i18n("Graph Sync %1 is available", version));
+    setPlainText(notification, i18n("This computer has version %1. The release page has the packages and what changed.", UpdateCheck::currentVersion()));
+    KNotificationAction *notes = notification->addAction(i18n("Release Notes…"));
+    connect(notes, &KNotificationAction::activated, this, [page] {
+        QDesktopServices::openUrl(page);
+    });
+    KNotificationAction *skip = notification->addAction(i18n("Skip This Version"));
+    connect(skip, &KNotificationAction::activated, this, [this, version] {
+        skipUpdate(version);
+    });
+    notification->sendEvent();
+    // Closed or answered before: the notification is gone and so is the timer
+    QTimer::singleShot(updateNotificationMs, notification, &KNotification::close);
 }
 
 void Daemon::notifyLinkFailed(const QString &name, const QString &error)

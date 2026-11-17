@@ -14,5 +14,6 @@ ecm_add_tests(
     folderbackuptest.cpp
     dolphinpreviewstest.cpp
     graphclienttest.cpp
+    updatechecktest.cpp
     LINK_LIBRARIES graphsynccore Qt6::Test
 )

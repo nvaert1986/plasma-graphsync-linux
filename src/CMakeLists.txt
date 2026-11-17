@@ -26,6 +26,7 @@ target_sources(graphsynccore PRIVATE
     core/autofreeup.cpp
     core/folderbackup.cpp
     core/dolphinpreviews.cpp
+    core/updatecheck.cpp
 )
 
 ecm_qt_declare_logging_category(graphsynccore

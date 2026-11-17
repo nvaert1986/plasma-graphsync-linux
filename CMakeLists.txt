@@ -3,7 +3,7 @@
 
 cmake_minimum_required(VERSION 3.25)
 
-project(plasma-graphsync-linux VERSION 0.9.4 LANGUAGES CXX)
+project(plasma-graphsync-linux VERSION 0.9.5 LANGUAGES CXX)
 
 # Qt 6.9 and KDE Frameworks 6.20 are the main target. Older systems such as Debian 13 (Qt 6.8,
 # Frameworks 6.13, Plasma 6.3) build too, but sign in with a code only (Auth::browserLoginAvailable)
@@ -38,6 +38,14 @@ add_compile_definitions(GRAPHSYNC_VERSION="${PROJECT_VERSION}" GRAPHSYNC_BINDIR=
 # Optional: build the app registration in, written to /etc/xdg/graphsyncrc (users can still override it)
 set(GRAPHSYNC_CLIENT_ID "" CACHE STRING "Entra ID application (client) ID to ship in /etc/xdg/graphsyncrc")
 set(GRAPHSYNC_TENANT_ID "" CACHE STRING "Entra ID directory (tenant) ID to ship in /etc/xdg/graphsyncrc")
+
+# Once a day, ask GitHub for the newest release and say so when there is a newer one. Turn it off for
+# distributions that ship updates themselves.
+option(GRAPHSYNC_UPDATE_CHECK "Notify about new releases on GitHub" ON)
+add_feature_info(GRAPHSYNC_UPDATE_CHECK GRAPHSYNC_UPDATE_CHECK "Notify about new releases on GitHub")
+if(GRAPHSYNC_UPDATE_CHECK)
+    add_compile_definitions(GRAPHSYNC_UPDATE_CHECK)
+endif()
 
 add_subdirectory(src)
 add_subdirectory(data)

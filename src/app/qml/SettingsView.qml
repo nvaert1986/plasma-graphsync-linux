@@ -1077,6 +1077,66 @@ Item {
                                 }
                             }
                         }
+
+                        // A new release on GitHub (the sync service's daily check)
+                        Kirigami.InlineMessage {
+                            Layout.fillWidth: true
+                            visible: page.api.updateCheckBuiltIn && page.api.checkForUpdates && (page.api.status.updateVersion ?? "") !== ""
+                            type: Kirigami.MessageType.Information
+                            text: i18n("Graph Sync %1 is available.", page.api.status.updateVersion ?? "")
+                            actions: [
+                                Kirigami.Action {
+                                    icon.name: "documentinfo"
+                                    text: i18n("Release Notes")
+                                    onTriggered: Qt.openUrlExternally(page.api.status.updatePage)
+                                },
+                                Kirigami.Action {
+                                    icon.name: "dialog-cancel"
+                                    text: i18n("Skip This Version")
+                                    onTriggered: page.api.skipUpdate(page.api.status.updateVersion)
+                                }
+                            ]
+                        }
+                        ColumnLayout {
+                            visible: page.api.updateCheckBuiltIn
+                            spacing: Kirigami.Units.smallSpacing
+                            QQC2.CheckBox {
+                                text: i18n("Check for new versions")
+                                checked: page.api.checkForUpdates
+                                onToggled: page.api.checkForUpdates = checked
+                                QQC2.ToolTip.visible: hovered
+                                QQC2.ToolTip.delay: Kirigami.Units.toolTipDelay
+                                QQC2.ToolTip.text: i18n("Asks GitHub once a day which version is the newest. Nothing is sent but the request itself; GitHub sees the address of your internet connection, as with any website.")
+                            }
+                            RowLayout {
+                                visible: page.api.checkForUpdates
+                                QQC2.Button {
+                                    icon.name: "view-refresh"
+                                    text: i18n("Check Now")
+                                    enabled: page.api.daemonRunning && !page.api.status.updateChecking
+                                    onClicked: page.api.checkForUpdatesNow()
+                                }
+                                QQC2.Label {
+                                    opacity: 0.7
+                                    text: {
+                                        const status = page.api.status;
+                                        if (status.updateChecking) {
+                                            return i18n("Checking…");
+                                        }
+                                        if (status.updateError) {
+                                            return i18n("Could not check: %1", status.updateError);
+                                        }
+                                        if (status.updateVersion) {
+                                            return "";
+                                        }
+                                        if (status.updateLastCheck) {
+                                            return i18n("This is the newest version (checked %1).", Qt.formatDateTime(new Date(status.updateLastCheck), Qt.locale().dateTimeFormat(Locale.ShortFormat)));
+                                        }
+                                        return i18n("Not checked yet.");
+                                    }
+                                }
+                            }
+                        }
                         Kirigami.FormLayout {
                             QQC2.Label {
                                 Kirigami.FormData.label: i18n("License:")

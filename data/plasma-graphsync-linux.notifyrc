@@ -40,3 +40,8 @@ Urgency=Low
 Name=Link not copied
 Comment=A sharing link could not be created
 Action=Popup
+
+[Event/updateAvailable]
+Name=New version
+Comment=A newer version of Graph Sync is available
+Action=Popup
