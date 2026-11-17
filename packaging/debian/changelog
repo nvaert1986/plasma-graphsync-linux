@@ -1,3 +1,13 @@
+plasma-graphsync-linux (0.14.0-1) unstable; urgency=medium
+
+  * The sign-in now comes from the suite's account service
+    (plasma-graphcore-linux): one sign-in for Graph Sync and Graph Mail, an
+    earlier sign-in is taken over without signing in again. System proxy,
+    clear error messages, Send Link by E-mail with Graph Mail. More in
+    CHANGELOG.md.
+
+ -- nvaert1986 <25772781+nvaert1986@users.noreply.github.com>  Tue, 17 Nov 2026 16:30:00 +0100
+
 plasma-graphsync-linux (0.9.5-1) unstable; urgency=medium
 
   * A notification when a new version is out on GitHub (once a day, can be

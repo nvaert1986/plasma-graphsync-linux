@@ -3,7 +3,7 @@
 # Maintainer: nvaert1986 <25772781+nvaert1986@users.noreply.github.com>
 
 pkgname=plasma-graphsync-linux
-pkgver=0.9.5
+pkgver=0.14.0
 pkgrel=1
 pkgdesc='Sync OneDrive for Business and SharePoint libraries on KDE Plasma'
 arch=(x86_64)
@@ -14,7 +14,8 @@ depends=(glibc libstdc++ hicolor-icon-theme
          qt6-base qt6-declarative qt6-networkauth qt6-websockets qtkeychain-qt6
          kbookmarks kcmutils kconfig kcoreaddons kdbusaddons kguiaddons ki18n kio kirigami
          knotifications kwindowsystem libplasma
-         plasma-workspace xdg-utils)
+         plasma-graphcore-linux plasma-workspace xdg-utils)
+optdepends=('kwallet: keeps the sign-in (or another Secret Service provider)')
 makedepends=(cmake extra-cmake-modules)
 options=(!debug)
 # Called plasma-onedrive-linux before 0.7.0; this package takes its place

@@ -6,7 +6,7 @@
 # --define "graphsync_client_id <id>" --define "graphsync_tenant_id <id>".
 
 Name:           plasma-graphsync-linux
-Version:        0.9.5
+Version:        0.14.0
 Release:        1%{?dist}
 Summary:        Sync OneDrive for Business and SharePoint libraries on KDE Plasma
 License:        GPL-3.0-or-later AND LGPL-3.0-or-later
@@ -43,9 +43,14 @@ BuildRequires:  cmake(KF6Kirigami)
 BuildRequires:  cmake(KF6Notifications)
 BuildRequires:  cmake(KF6WindowSystem)
 BuildRequires:  cmake(Plasma)
+BuildRequires:  cmake(GraphCore) >= 0.14
 
 # Loaded at run time, so rpm cannot find them by itself: the QML modules of the windows, the
 # tray applet (org.kde.plasma.workspace.dbus comes with plasma-workspace) and the SQLite driver
+# The suite's account service (graphaccountsd): every sign-in goes through it
+Requires:       plasma-graphcore-linux >= 0.14.0
+# The keychain (Secret Service) that holds the sign-in
+Recommends:     kf6-kwallet
 Requires:       kf6-kirigami
 Requires:       kf6-kcmutils
 Requires:       plasma-workspace
@@ -106,6 +111,9 @@ the Sync button in SharePoint. Not affiliated with Microsoft.
 %endif
 
 %changelog
+* Tue Nov 17 2026 nvaert1986 <25772781+nvaert1986@users.noreply.github.com> - 0.14.0-1
+- The sign-in comes from the suite's account service (plasma-graphcore-linux): one sign-in for
+  Graph Sync and Graph Mail; system proxy, clear error messages, Send Link by E-mail
 * Fri Nov 13 2026 nvaert1986 <25772781+nvaert1986@users.noreply.github.com> - 0.9.5-1
 - A notification when a new version is out on GitHub (once a day, can be
   turned off in Settings > About); see CHANGELOG.md.

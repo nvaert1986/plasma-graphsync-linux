@@ -122,13 +122,16 @@ app registration and the work e-mail address (the tenant is looked up), unless a
 put them in `/etc/xdg/graphsyncrc`.
 
 Ready-made packages are attached to each
-[release](https://github.com/nvaert1986/plasma-graphsync-linux/releases):
+[release](https://github.com/nvaert1986/plasma-graphsync-linux/releases). Since 0.11 Graph Sync
+needs the suite's account service, [plasma-graphcore-linux](https://github.com/nvaert1986/plasma-graphcore-linux/releases)
+of the same series (0.14 for 0.14.x): download its packages too and install them in one go. An
+earlier Graph Sync is upgraded in place, and its sign-in is taken over without signing in again.
 
-| Distribution | Install (as root) |
+| Distribution | Install (as root), in the folder with the downloaded files |
 |---|---|
-| Debian 13 (trixie) | `apt install ./plasma-graphsync-linux_<version>-1_amd64.deb` |
-| Fedora (newest release) | `dnf install ./plasma-graphsync-linux-<version>-1.fc<release>.x86_64.rpm` |
-| Arch Linux | `pacman -U plasma-graphsync-linux-<version>-1-x86_64.pkg.tar.zst` |
+| Debian 13 (trixie) | `apt install ./libgraphcore0.14_<version>-1_amd64.deb ./plasma-graphcore-linux_<version>-1_amd64.deb ./plasma-graphsync-linux_<version>-1_amd64.deb` |
+| Fedora (newest release) | `dnf install ./plasma-graphcore-linux-<version>-1.fc<release>.x86_64.rpm ./plasma-graphsync-linux-<version>-1.fc<release>.x86_64.rpm` |
+| Arch Linux | `pacman -U plasma-graphcore-linux-<version>-1-x86_64.pkg.tar.zst plasma-graphsync-linux-<version>-1-x86_64.pkg.tar.zst` |
 
 They are built and install-tested in clean containers. The packaging files, and an ebuild for
 Gentoo, are in [packaging/](packaging/).

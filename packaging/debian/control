@@ -16,6 +16,7 @@ Build-Depends: debhelper-compat (= 13),
                libkf6kio-dev,
                libkf6notifications-dev,
                libkf6windowsystem-dev,
+               libgraphcore-dev (>= 0.14.0),
                libplasma-dev,
                qt6-base-dev,
                qt6-declarative-dev,
@@ -33,11 +34,15 @@ Conflicts: plasma-onedrive-linux
 Replaces: plasma-onedrive-linux
 Depends: ${misc:Depends},
          ${shlibs:Depends},
+         plasma-graphcore-linux (>= 0.14.0),
          libqt6sql6-sqlite,
+         qml6-module-org-kde-kcmutils,
          plasma-workspace,
          qml6-module-org-kde-kirigami,
          qml6-module-qtquick-dialogs,
          xdg-utils
+# The keychain (Secret Service) that holds the suite's sign-in
+Recommends: kwallet6 | gnome-keyring
 Description: Sync OneDrive for Business and SharePoint libraries on KDE Plasma
  Keeps OneDrive for Business and SharePoint document libraries in folders on
  this computer, with a system tray applet, a System Settings page and support
