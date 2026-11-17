@@ -3,6 +3,12 @@
 All notable changes to Graph Sync (plasma-graphsync-linux). Versions follow the last finished
 development phase; the third number counts fixes.
 
+## 0.12.0 (in development)
+
+**Changed**
+- The update check is now the suite's (in plasma-graphcore-linux), shared with Graph Mail. It works
+  as before and keeps its last answer and a skipped version.
+
 ## 0.11.0 (2026-11-17)
 
 Phase 10: one sign-in for the whole suite. The version jumps to 0.11.0 so the suite's apps (Graph
