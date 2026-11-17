@@ -26,12 +26,15 @@ lose, and keep the online recycle bin in mind.
 
 ## Versions and branches
 
-Graph Sync, Graph Mail and their shared core (plasma-graphcore-linux) keep one version number,
-major.minor.patch.
+Graph Sync, Graph Mail and their shared core (plasma-graphcore-linux) keep one version series.
 
-- Within a release series only the last digit changes, and only for fixes: in 0.11.x the
-  configuration, the sync state and every interface to the other apps of the suite stay compatible.
-  New features wait for the next minor (0.12.0) or major (1.0.0).
+- The suite shares **major.minor**; the patch number may differ per app (one app at 0.11.1 next to
+  another at 0.11.0).
+- Within a release series (0.11.x) everything the apps share stays compatible: the shared core's
+  library interface (ABI and API), the D-Bus interfaces, and the configuration, cache and state
+  formats (new settings keys are fine; older versions ignore them). A patch release holds fixes,
+  and small features only when they change none of these. Anything else waits for the next minor
+  (0.12.0) or major (1.0.0).
 - Each series has a maintenance branch named after it (`0.11`). Fixes go there and are merged into
   `main`; `main` holds the next series.
 
