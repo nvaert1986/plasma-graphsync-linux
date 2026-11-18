@@ -7,7 +7,7 @@
 
 Name:           plasma-graphsync-linux
 Version:        0.14.0
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        Sync OneDrive for Business and SharePoint libraries on KDE Plasma
 License:        GPL-3.0-or-later AND LGPL-3.0-or-later
 URL:            https://github.com/nvaert1986/plasma-graphsync-linux
@@ -61,6 +61,19 @@ Requires:       xdg-utils
 Obsoletes:      plasma-onedrive-linux < 0.7.0
 Provides:       plasma-onedrive-linux = %{version}-%{release}
 
+
+# Built against the versions installed now, so they become the minimum: a system that was not
+# updated first (dnf install ./file.rpm keeps what is "good enough") otherwise fails at run time with
+# "undefined symbol" (0.14.0-1)
+%{lua:
+for name in ("qt6-qtbase qt6-qtdeclarative qt6-qtwebsockets qtkeychain-qt6 kf6-kbookmarks kf6-kconfig kf6-kcoreaddons kf6-kdbusaddons kf6-kguiaddons kf6-ki18n kf6-kio-core kf6-kcmutils kf6-knotifications kf6-kwindowsystem libplasma"):gmatch("%S+") do
+  local v = rpm.expand("%(rpm -q --qf '%%{version}' " .. name .. " 2>/dev/null)")
+  if v ~= "" and not v:find("not installed") then
+    print("Requires: " .. name .. rpm.expand("%{?_isa}") .. " >= " .. v .. "\n")
+  end
+end
+}
+
 %description
 Keeps OneDrive for Business and SharePoint document libraries in folders on
 this computer, with a system tray applet, a System Settings page, Dolphin
@@ -111,6 +124,10 @@ the Sync button in SharePoint. Not affiliated with Microsoft.
 %endif
 
 %changelog
+* Wed Nov 18 2026 nvaert1986 <25772781+nvaert1986@users.noreply.github.com> - 0.14.0-2
+- Require at least the Qt and KDE library versions the package was built against: on a
+  system that was not updated first it failed with "undefined symbol"
+
 * Tue Nov 17 2026 nvaert1986 <25772781+nvaert1986@users.noreply.github.com> - 0.14.0-1
 - The sign-in comes from the suite's account service (plasma-graphcore-linux): one sign-in for
   Graph Sync and Graph Mail; system proxy, clear error messages, Send Link by E-mail

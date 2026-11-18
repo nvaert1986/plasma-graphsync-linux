@@ -4,7 +4,7 @@
 
 pkgname=plasma-graphsync-linux
 pkgver=0.14.0
-pkgrel=1
+pkgrel=2
 pkgdesc='Sync OneDrive for Business and SharePoint libraries on KDE Plasma'
 arch=(x86_64)
 url='https://github.com/nvaert1986/plasma-graphsync-linux'
@@ -39,4 +39,17 @@ build() {
 
 package() {
   DESTDIR="$pkgdir" cmake --install build
+  # Built against the versions installed now, so they become the minimum: a system that was not
+  # updated first (pacman -U without -Syu) otherwise fails at run time with "undefined symbol"
+  local dep name ver
+  local -a pinned=()
+  for dep in "${depends[@]}"; do
+    name=${dep%%[<>=]*}
+    case $name in
+      glibc|hicolor-icon-theme|xdg-utils|plasma-workspace|plasma-graphcore-linux) pinned+=("$dep"); continue ;;
+    esac
+    ver=$(pacman -Q "$name" 2>/dev/null | cut -d' ' -f2)
+    pinned+=("$name${ver:+>=${ver%-*}}")
+  done
+  depends=("${pinned[@]}")
 }
