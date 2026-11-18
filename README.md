@@ -133,6 +133,11 @@ earlier Graph Sync is upgraded in place, and its sign-in is taken over without s
 | Fedora (newest release) | `dnf install ./plasma-graphcore-linux-<version>-1.fc<release>.x86_64.rpm ./plasma-graphsync-linux-<version>-1.fc<release>.x86_64.rpm` |
 | Arch Linux | `pacman -U plasma-graphcore-linux-<version>-1-x86_64.pkg.tar.zst plasma-graphsync-linux-<version>-1-x86_64.pkg.tar.zst` |
 
+Good to know: the sign-in is kept in the system keychain, so **KDE Wallet must be switched on** (System
+Settings > KDE Wallet) or another Secret Service provider must run. The first account on a computer needs
+the **Client ID** of the organisation's app registration. On **Debian 13** (Qt 6.8) only the sign-in with a
+code works. On **Arch**, update first (`pacman -Syu`), then install.
+
 They are built and install-tested in clean containers. The packaging files, and an ebuild for
 Gentoo, are in [packaging/](packaging/).
 
